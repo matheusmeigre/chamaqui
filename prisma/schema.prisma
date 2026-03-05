@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ----------------------------------------------------------------------------
+// 1. ENUMS (Classificações e Ciclo de Vida)
+// ----------------------------------------------------------------------------
+
+enum Role {
+  SOLICITANTE
+  ATENDENTE
+  ADMINISTRADOR
+}
+
+enum TicketStatus {
+  ABERTO
+  EM_TRIAGEM
+  EM_ATENDIMENTO
+  PENDENTE
+  RESOLVIDO
+  FECHADO
+  CANCELADO
+}
+
+enum Priority {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+// ----------------------------------------------------------------------------
+// 2. MODELS
+// ----------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(SOLICITANTE)
+  
+  // Relações
+  createdTickets Ticket[]   @relation("Solicitante")
+  assignedTickets Ticket[]  @relation("Atendente")
+  comments        Comment[]
+  notifications   Notification[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  
+  // SLA em horas úteis padrão para esta categoria
+  defaultSlaHours Int     @default(24)
+
+  tickets     Ticket[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Ticket {
+  id          String        @id @default(uuid())
+  title       String
+  description String        @db.Text
+  status      TicketStatus  @default(ABERTO)
+  priority    Priority      @default(BAIXA)
+  
+  // Controle de SLA
+  slaTarget   DateTime?
+  resolvedAt  DateTime?
+
+  // Relações
+  categoryId  String
+  category    Category      @relation(fields: [categoryId], references: [id])
+  
+  requesterId String
+  requester   User          @relation("Solicitante", fields: [requesterId], references: [id])
+  
+  assigneeId  String?
+  assignee    User?         @relation("Atendente", fields: [assigneeId], references: [id])
+
+  comments    Comment[]
+
+  // Avaliação do cliente (1 a 5)
+  rating      Int?
+  ratingNotes String?       @db.Text
+
+  // Anexos do chamado
+  attachmentUrls String[]
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  
+  isSystem  Boolean  @default(false) // Para diferenciar comentários humanos de logs do sistema (ex: "Status alterado para Resolvido")
+  attachmentUrls String[] // Anexos nos comentários
+  
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  link      String?  
+  read      Boolean  @default(false)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
