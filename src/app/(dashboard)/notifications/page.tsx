@@ -5,8 +5,8 @@ import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bell, Check, ExternalLink } from "lucide-react";
-import Link from "next/link";
 import { markNotificationAsRead, markAllNotificationsAsRead } from "@/app/actions/notifications";
+import { NotificationLink } from "@/components/notifications/NotificationLink";
 
 export default async function NotificationsPage() {
   const session = await getServerSession(authOptions);
@@ -17,7 +17,7 @@ export default async function NotificationsPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((notification) => !(notification.isRead || notification.read)).length;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -51,13 +51,16 @@ export default async function NotificationsPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {notifications.map((notif) => (
+            {notifications.map((notif) => {
+              const isRead = notif.isRead || notif.read;
+
+              return (
               <div 
                 key={notif.id} 
-                className={`p-4 hover:bg-slate-50 transition flex items-start gap-4 ${notif.read ? 'opacity-70' : 'bg-blue-50/50'}`}
+                className={`p-4 hover:bg-slate-50 transition flex items-start gap-4 ${isRead ? 'opacity-70' : 'bg-blue-50/50'}`}
               >
                 <div className="mt-1">
-                  {!notif.read ? (
+                  {!isRead ? (
                     <div className="w-2 h-2 bg-blue-500 rounded-full" />
                   ) : (
                     <div className="w-2 h-2 bg-transparent" />
@@ -65,11 +68,11 @@ export default async function NotificationsPage() {
                 </div>
                 <div className="flex-1 space-y-1">
                   <div className="flex justify-between items-start">
-                    <h4 className={`text-sm ${notif.read ? 'font-medium text-slate-700' : 'font-semibold text-slate-900'}`}>
+                    <h4 className={`text-sm ${isRead ? 'font-medium text-slate-700' : 'font-semibold text-slate-900'}`}>
                       {notif.title}
                     </h4>
                     <span className="text-xs text-slate-400 whitespace-nowrap ml-4">
-                      {format(new Date(notif.createdAt), "dd/MM/yyyy HH:mm")}
+                      {format(new Date(notif.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                     </span>
                   </div>
                   <p className="text-sm text-slate-600">
@@ -78,15 +81,16 @@ export default async function NotificationsPage() {
                   
                   <div className="flex items-center gap-4 mt-3 pt-2">
                     {notif.link && (
-                      <Link 
+                      <NotificationLink 
+                        id={notif.id}
                         href={notif.link}
                         className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
                       >
                         Acessar link <ExternalLink size={12} />
-                      </Link>
+                      </NotificationLink>
                     )}
                     
-                    {!notif.read && (
+                    {!isRead && (
                       <form action={async () => {
                         "use server"
                         await markNotificationAsRead(notif.id);
@@ -99,7 +103,8 @@ export default async function NotificationsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

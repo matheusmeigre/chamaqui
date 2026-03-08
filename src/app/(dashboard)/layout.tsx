@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import prisma from "@/lib/prisma";
 import { DashboardLayoutInner } from "./dashboard-layout-inner";
+import { getUnreadNotificationsCount } from "@/server/services/notification-service";
 
 export default async function DashboardLayout({
   children,
@@ -15,12 +15,7 @@ export default async function DashboardLayout({
     redirect("/api/auth/signin");
   }
 
-  const unreadNotificationsCount = await prisma.notification.count({
-    where: {
-      userId: session.user.id,
-      read: false
-    }
-  });
+  const unreadNotificationsCount = await getUnreadNotificationsCount(session.user.id);
 
   return (
     <DashboardLayoutInner 
