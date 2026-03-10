@@ -16,7 +16,6 @@ export async function getRecentNotifications({ userId, take }: RecentNotificatio
       message: true,
       link: true,
       read: true,
-      isRead: true,
       createdAt: true,
     },
   });
@@ -36,8 +35,6 @@ export async function markNotificationRead(id: string, userId: string) {
     where: { id },
     data: {
       read: true,
-      isRead: true,
-      readAt: new Date(),
     },
   });
 }
@@ -46,12 +43,10 @@ export async function markAllNotificationsRead(userId: string) {
   return prisma.notification.updateMany({
     where: {
       userId,
-      OR: [{ isRead: false }, { read: false }],
+      read: false,
     },
     data: {
       read: true,
-      isRead: true,
-      readAt: new Date(),
     },
   });
 }
@@ -60,7 +55,7 @@ export async function countUnreadNotifications(userId: string) {
   return prisma.notification.count({
     where: {
       userId,
-      OR: [{ isRead: false }, { read: false }],
+      read: false,
     },
   });
 }

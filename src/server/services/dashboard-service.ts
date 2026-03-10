@@ -18,7 +18,7 @@ const statusOrder: TicketStatus[] = [
 ];
 
 const openStatuses: TicketStatus[] = ["ABERTO", "EM_TRIAGEM"];
-const attendedStatuses: TicketStatus[] = ["EM_ATENDIMENTO", "RESOLVIDO", "FECHADO"];
+const attendedStatuses: TicketStatus[] = ["EM_ATENDIMENTO", "RESOLVIDO", "FECHADO", "CANCELADO"];
 
 export async function getDashboardMetrics() {
   const counts = await getTicketStatusCounts();

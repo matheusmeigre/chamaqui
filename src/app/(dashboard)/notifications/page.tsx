@@ -17,7 +17,7 @@ export default async function NotificationsPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  const unreadCount = notifications.filter((notification) => !(notification.isRead || notification.read)).length;
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -52,7 +52,7 @@ export default async function NotificationsPage() {
         ) : (
           <div className="divide-y divide-slate-100">
             {notifications.map((notif) => {
-              const isRead = notif.isRead || notif.read;
+              const isRead = notif.read;
 
               return (
               <div 

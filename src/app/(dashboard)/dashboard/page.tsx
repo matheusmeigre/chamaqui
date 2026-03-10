@@ -52,7 +52,7 @@ const statusPill: Record<string, string> = {
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
-  const headerList = headers();
+  const headerList = await headers();
   const host = headerList.get("host");
   const protocol = headerList.get("x-forwarded-proto") ?? "http";
   const cookie = headerList.get("cookie") ?? "";
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
               ) : (
                 <ul className="space-y-3">
                   {recentNotifications.map((notification) => {
-                    const isRead = notification.isRead || notification.read;
+                    const isRead = notification.read;
                     const content = (
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
