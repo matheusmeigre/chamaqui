@@ -6,10 +6,10 @@ import { ArrowLeft, User, Calendar, Tag, MessageCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { updateTicketStatus, addComment } from "@/app/actions/tickets";
-import { SubmitButton } from "../new/submit-button"; // Reutilizando
+import { addComment } from "@/app/actions/tickets";
 import { ImageGallery } from "./image-gallery";
 import { RequesterActions } from "./requester-actions";
+import { TechStatusForm } from "./tech-status-form";
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
@@ -171,28 +171,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           </div>
 
           {canChangeStatus && (
-            <div className="bg-blue-50 rounded-xl shadow-sm border border-blue-100 p-6 space-y-4">
-              <h3 className="text-lg font-semibold text-blue-900 border-b border-blue-200 pb-2">Ações Técnicas</h3>
-              <form action={async (formData) => {
-                "use server"
-                const newStatus = formData.get("status") as string;
-                await updateTicketStatus(ticket.id, newStatus);
-              }} className="space-y-3">
-                <label className="block text-sm font-medium text-blue-800">Alterar Status e Assumir</label>
-                <select name="status" defaultValue={ticket.status} className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white outline-none text-slate-900">
-                  <option value="ABERTO">Aberto</option>
-                  <option value="EM_TRIAGEM">Em Triagem</option>
-                  <option value="EM_ATENDIMENTO">Em Atendimento</option>
-                  <option value="PENDENTE">Pendente (Aguardando Retorno)</option>
-                  <option value="RESOLVIDO">Resolvido</option>
-                  <option value="FECHADO">Fechado</option>
-                  <option value="CANCELADO">Cancelado</option>
-                </select>
-                <button type="submit" className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
-                  Confirmar Ação
-                </button>
-              </form>
-            </div>
+            <TechStatusForm ticketId={ticket.id} currentStatus={ticket.status} />
           )}
         </div>
 
