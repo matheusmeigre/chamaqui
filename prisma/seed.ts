@@ -14,22 +14,33 @@ async function main() {
   console.log('Iniciando o seeder...');
 
   // Criar Categorias Base
-  const categories = ['Hardware', 'Software', 'Rede', 'Acesso', 'Infraestrutura', 'Outros'];
-  for (const catName of categories) {
-    await prisma.category.upsert({
-      where: { id: catName }, // Fake id for upsert check, better use name if unique, but Category id is UUID. We'll findFirst instead.
-      update: {},
-      create: { name: catName, description: `Categoria para chamados de ${catName}`, defaultSlaHours: 24 }
-    }).catch(async () => {
-      const exists = await prisma.category.findFirst({ where: { name: catName } });
-      if (!exists) {
-        await prisma.category.create({
-          data: { name: catName, description: `Categoria para chamados de ${catName}`, defaultSlaHours: 24 }
-        });
-      }
-    });
+  const categories = [
+    { name: 'Acesso',         description: 'Dificuldades com senhas, permissões, login ou controle de acesso a sistemas e ferramentas.',           defaultSlaHours: 24 },
+    { name: 'Aplicação',      description: 'Erros ou falhas em aplicações web (frontend e/ou backend), APIs, formulários ou sistemas internos.',     defaultSlaHours: 24 },
+    { name: 'Hardware',       description: 'Problemas com equipamentos físicos como computadores, impressoras, monitores, teclados, mouses etc.',    defaultSlaHours: 24 },
+    { name: 'Infraestrutura', description: 'Falhas em servidores, data centers, fornecimento de energia ou estrutura física de TI.',                  defaultSlaHours: 24 },
+    { name: 'Outros',         description: 'Demandas que não se enquadram nas categorias listadas acima.',                                            defaultSlaHours: 24 },
+    { name: 'Rede',           description: 'Problemas de conectividade, internet, Wi-Fi, VPN ou acesso à rede corporativa.',                          defaultSlaHours: 24 },
+    { name: 'Software',       description: 'Erros, falhas ou dúvidas em programas instalados, licenças ou configurações de software.',               defaultSlaHours: 24 },
+  ];
+  for (const cat of categories) {
+    const exists = await prisma.category.findFirst({ where: { name: cat.name } });
+    if (!exists) {
+      await prisma.category.create({ data: cat });
+    }
   }
-  console.log('✅ Categorias criadas/verificadas.');
+  // Remove duplicatas mantendo o registro mais antigo de cada nome
+  const allCategories = await prisma.category.findMany({ orderBy: { createdAt: 'asc' } });
+  const seen = new Set<string>();
+  for (const cat of allCategories) {
+    if (seen.has(cat.name)) {
+      await prisma.ticket.updateMany({ where: { categoryId: cat.id }, data: {} }); // tickets sem referência serão mantidos
+      await prisma.category.delete({ where: { id: cat.id } }).catch(() => {}); // ignora se houver tickets vinculados
+    } else {
+      seen.add(cat.name);
+    }
+  }
+  console.log('✅ Categorias criadas/verificadas (duplicatas removidas).');
 
   const passwordHash = await bcrypt.hash('123456', 10);
 
