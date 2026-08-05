@@ -11,6 +11,7 @@ import {
   COOKIE_NAMES,
   DEVICE_TOKEN_TTL_SECONDS,
   REFRESH_TOKEN_TTL_SECONDS,
+  isAdminOrganization,
 } from "./config";
 import {
   decryptToken,
@@ -205,13 +206,18 @@ export async function activateDeviceWithCode({
   }
 
   // Resolve/cria o usuário da organização
+  // Defesa em profundidade: apenas a organização HDL pode possuir administradores.
+  const effectiveRole =
+    activationCode.role === "ADMINISTRADOR" && !isAdminOrganization(organization.slug)
+      ? "SOLICITANTE"
+      : activationCode.role;
   const user = await prisma.user.upsert({
     where: { email: organization.email },
-    update: { name: organization.name, role: activationCode.role, organizationId: organization.id },
+    update: { name: organization.name, role: effectiveRole, organizationId: organization.id },
     create: {
       email: organization.email,
       name: organization.name,
-      role: activationCode.role,
+      role: effectiveRole,
       organizationId: organization.id,
     },
   });

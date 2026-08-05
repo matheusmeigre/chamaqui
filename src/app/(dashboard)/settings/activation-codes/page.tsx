@@ -21,6 +21,13 @@ export default async function ActivationCodesPage() {
     take: 50,
   });
 
+  const organization = session.organizationId
+    ? await prisma.organization.findUnique({
+        where: { id: session.organizationId },
+        select: { slug: true },
+      })
+    : null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -31,14 +38,17 @@ export default async function ActivationCodesPage() {
         Gere códigos de uso único para ativar dispositivos. Cada código expira em 30 dias e é exibido apenas uma vez.
       </p>
 
-      <ActivationCodesPanel codes={codes.map((c) => ({
-        id: c.id,
-        role: c.role,
-        used: Boolean(c.usedAt),
-        usedAt: c.usedAt?.toISOString() ?? null,
-        expiresAt: c.expiresAt.toISOString(),
-        createdAt: c.createdAt.toISOString(),
-      }))} />
+      <ActivationCodesPanel
+        isAdminOrganization={organization?.slug === "hdl"}
+        codes={codes.map((c) => ({
+          id: c.id,
+          role: c.role,
+          used: Boolean(c.usedAt),
+          usedAt: c.usedAt?.toISOString() ?? null,
+          expiresAt: c.expiresAt.toISOString(),
+          createdAt: c.createdAt.toISOString(),
+        }))}
+      />
 
       <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">

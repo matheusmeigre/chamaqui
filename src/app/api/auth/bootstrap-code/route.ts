@@ -8,7 +8,7 @@ import {
   registerFailedLogin,
 } from "@/lib/auth-throttle";
 import { generateActivationCode, hashActivationCode } from "@/lib/auth/tokens";
-import { ACTIVATION_CODE_TTL_SECONDS } from "@/lib/auth/config";
+import { ACTIVATION_CODE_TTL_SECONDS, isAdminOrganization } from "@/lib/auth/config";
 import { getDeviceSignalsFromRequest } from "@/lib/auth/request";
 import { writeAuditLog } from "@/lib/auth/auth";
 
@@ -66,10 +66,11 @@ export async function POST(request: NextRequest) {
   await clearFailedLogins(organization.slug, clientHash);
 
   const plainCode = generateActivationCode();
+  const role = isAdminOrganization(organization.slug) ? "ADMINISTRADOR" : "SOLICITANTE";
   const code = await prisma.activationCode.create({
     data: {
       codeHash: hashActivationCode(plainCode),
-      role: "ADMINISTRADOR",
+      role,
       expiresAt: new Date(Date.now() + ACTIVATION_CODE_TTL_SECONDS * 1000),
       organizationId: organization.id,
     },
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
     code: {
       id: code.id,
       plainCode, // exibido apenas uma vez
-      role: "ADMINISTRADOR",
+      role,
       expiresAt: code.expiresAt,
       organization: { slug: organization.slug, name: organization.name },
     },
