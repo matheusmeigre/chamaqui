@@ -154,7 +154,7 @@ export default async function DashboardPage() {
                         </p>
                       </div>
                       <div className="text-right space-y-1">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusPill[ticket.status] ?? "bg-slate-100 text-slate-700"}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${statusPill[ticket.status] ?? "bg-slate-100 text-slate-700"}`}>
                           {statusLabels[ticket.status] ?? ticket.status}
                         </span>
                         <p className="text-[11px] text-slate-400">
