@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ticket, Building2, KeyRound, AlertCircle, Loader2, ChevronDown, QrCode } from "lucide-react";
+import { Ticket, Building2, KeyRound, AlertCircle, Loader2, ChevronDown, QrCode, ShieldCheck } from "lucide-react";
 
 type Organization = {
   id: string;
@@ -20,7 +20,15 @@ export default function LoginPage() {
   const [step, setStep] = useState<ActivationStep>("code");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const checkedSession = useRef(false);
+  const [checkedSession, setCheckedSession] = useState(false);
+
+  // Fluxo bootstrap (responsável pela organização)
+  const [showBootstrap, setShowBootstrap] = useState(false);
+  const [bootstrapKey, setBootstrapKey] = useState("");
+  const [bootstrapCode, setBootstrapCode] = useState("");
+  const [bootstrapRole, setBootstrapRole] = useState("");
+  const [bootstrapError, setBootstrapError] = useState("");
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
 
   const loadOrganizations = useCallback(async () => {
     try {
@@ -36,10 +44,10 @@ export default function LoginPage() {
 
   // "Próximos acessos": se já existe sessão válida, entra direto (sem código/PIN na fase 1).
   useEffect(() => {
-    if (checkedSession.current) return;
-    checkedSession.current = true;
+    if (checkedSession) return;
 
     (async () => {
+      setCheckedSession(true);
       try {
         const res = await fetch("/api/auth/session", { cache: "no-store" });
         if (res.ok) {
@@ -53,7 +61,7 @@ export default function LoginPage() {
       }
       await loadOrganizations();
     })();
-  }, [router, loadOrganizations]);
+  }, [router, loadOrganizations, checkedSession]);
 
   const handleActivate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +96,44 @@ export default function LoginPage() {
     } catch {
       setError("Ocorreu um erro ao tentar ativar o dispositivo.");
       setIsLoading(false);
+    }
+  };
+
+  const handleBootstrap = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!organizationId || !bootstrapKey) return;
+
+    setBootstrapLoading(true);
+    setBootstrapError("");
+    setBootstrapCode("");
+
+    try {
+      const res = await fetch("/api/auth/bootstrap-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, accessKey: bootstrapKey }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const messages: Record<string, string> = {
+          ACCESS_KEY_INVALID: "Chave de acesso inválida para esta organização.",
+          LOGIN_BLOCKED: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+          ORGANIZATION_INVALID: "Organização inválida ou desativada.",
+          INVALID_INPUT: "Informe a organização e a chave de acesso.",
+        };
+        setBootstrapError(messages[data?.error] ?? "Não foi possível gerar o código.");
+        return;
+      }
+
+      setBootstrapRole(data.code.role);
+      setBootstrapCode(data.code.plainCode);
+      setBootstrapKey("");
+    } catch {
+      setBootstrapError("Ocorreu um erro ao tentar gerar o código.");
+    } finally {
+      setBootstrapLoading(false);
     }
   };
 
@@ -227,6 +273,72 @@ export default function LoginPage() {
               </button>
             )}
           </form>
+
+          {/* Bootstrap: responsável pela organização */}
+          <div className="mt-6 pt-6 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => { setShowBootstrap(!showBootstrap); setBootstrapError(""); setBootstrapCode(""); }}
+              className="w-full flex items-center justify-center gap-2 min-h-11 text-sm font-medium text-slate-600 hover:text-blue-600 transition"
+            >
+              <ShieldCheck size={16} />
+              {showBootstrap ? "Fechar" : "Sou responsável pela organização — gerar código de acesso"}
+            </button>
+
+            {showBootstrap && (
+              <form onSubmit={handleBootstrap} className="mt-4 space-y-4">
+                <p className="text-sm text-slate-500">
+                  Use a chave de acesso da sua organização para gerar um código de ativação (função
+                  {bootstrapRole ? ` ${bootstrapRole} ` : " de administrador "}deste dispositivo).
+                </p>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <KeyRound className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={bootstrapKey}
+                    onChange={(e) => { setBootstrapKey(e.target.value); setBootstrapError(""); setBootstrapCode(""); }}
+                    disabled={!organizationId || bootstrapLoading}
+                    autoComplete="off"
+                    placeholder={organizationId ? "Chave de acesso da organização" : "Selecione a organização primeiro"}
+                    className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-base text-slate-900 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                {bootstrapError && (
+                  <div className="p-3 bg-red-50 text-red-600 rounded-lg flex items-center gap-2 text-sm">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <p className="break-words">{bootstrapError}</p>
+                  </div>
+                )}
+
+                {bootstrapCode && (
+                  <div className="rounded-lg bg-slate-50 p-4">
+                    <p className="text-xs text-slate-500 mb-1">
+                      Código gerado (use uma única vez, expira em 24h):
+                    </p>
+                    <code className="block text-center text-2xl font-mono font-bold tracking-[0.2em] text-slate-900">
+                      {bootstrapCode}
+                    </code>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={bootstrapLoading || !organizationId || !bootstrapKey}
+                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-slate-900 hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bootstrapLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    "Gerar código de acesso"
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
 
         {/* Footer info */}
