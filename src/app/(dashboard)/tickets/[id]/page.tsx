@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { ArrowLeft, User, Calendar, Tag, MessageCircle } from "lucide-react";
@@ -13,13 +12,13 @@ import type { TicketStatus } from "@prisma/client";
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
   
-  const session = await getServerSession(authOptions);
+  const session = await getCurrentUser();
   if (!session) redirect("/login");
 
   const ticket = await prisma.ticket.findFirst({
     where: {
       id: resolvedParams.id,
-      ...(session.user.role === "SOLICITANTE" ? { requesterId: session.user.id } : {}),
+      ...(session.role === "SOLICITANTE" ? { requesterId: session.id } : {}),
     },
     include: {
       category: true,
@@ -34,7 +33,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
   if (!ticket) redirect("/tickets");
 
-  const isAttendantOrAdmin = session.user.role === "ATENDENTE" || session.user.role === "ADMINISTRADOR";
+  const isAttendantOrAdmin = session.role === "ATENDENTE" || session.role === "ADMINISTRADOR";
   const canChangeStatus = isAttendantOrAdmin;
 
   return (
@@ -66,7 +65,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           </div>
 
           {/* Componente de Ação do Solicitante (Avaliar ou Reabrir) */}
-          {session.user.id === ticket.requesterId && (ticket.status === "PENDENTE" || ticket.status === "RESOLVIDO") && (
+          {session.id === ticket.requesterId && (ticket.status === "PENDENTE" || ticket.status === "RESOLVIDO") && (
             <RequesterActions ticketId={ticket.id} />
           )}
 
@@ -86,7 +85,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                       {comment.content} | {format(new Date(comment.createdAt), "dd/MM HH:mm")}
                     </span>
                   ) : (
-                    <div className={`p-4 rounded-lg text-sm ${comment.authorId === session.user.id ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50 border border-slate-100'}`}>
+                    <div className={`p-4 rounded-lg text-sm ${comment.authorId === session.id ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50 border border-slate-100'}`}>
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 mb-2">
                         <span className="font-semibold text-gray-800 break-words">{comment.author.name}</span>
                         <span className="shrink-0 text-xs text-slate-400">{format(new Date(comment.createdAt), "dd/MM/yyyy HH:mm")}</span>

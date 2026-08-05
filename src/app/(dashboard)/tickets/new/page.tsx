@@ -1,15 +1,13 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { createTicket } from "@/app/actions/tickets";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "./submit-button";
-import { CategoryInfoTooltip } from "@/components/CategoryInfoTooltip";
 
 export default async function NewTicketPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getCurrentUser();
   if (!session) redirect("/login");
 
   const allCategories = await prisma.category.findMany({

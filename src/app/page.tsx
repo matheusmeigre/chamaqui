@@ -13,7 +13,7 @@ export default function Home() {
           </div>
           <nav>
             <Link 
-              href="/api/auth/signin" 
+              href="/login" 
               className="inline-flex min-h-11 items-center justify-center px-4 sm:px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
             >
               Entrar
@@ -32,7 +32,7 @@ export default function Home() {
           A plataforma Chamaqui conecta solicitantes e desenvolvedores de forma ágil. Acompanhe tickets, cumpra SLAs e revolucione o suporte da sua empresa.
         </p>
         <Link 
-          href="/api/auth/signin"
+          href="/login"
           className="inline-flex items-center gap-2 px-8 py-4 text-lg font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl"
         >
           Acessar a Plataforma

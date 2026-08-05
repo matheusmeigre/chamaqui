@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Ticket, Users, Settings, LogOut, Bell, Menu, X } from "lucide-react";
+import { LayoutDashboard, Ticket, Users, Settings, LogOut, Bell, Menu, X, Monitor, QrCode } from "lucide-react";
 
 interface User {
   name?: string | null;
@@ -77,6 +77,14 @@ export function DashboardLayoutInner({ children, user, unreadCount }: DashboardL
                 <Settings size={20} />
                 Configurações
               </Link>
+              <Link href="/settings/devices" onClick={closeSidebar} className={`flex min-h-11 items-center gap-2 px-3 py-2 rounded transition ${pathname?.startsWith('/settings/devices') ? 'bg-blue-600' : 'hover:bg-slate-800'}`}>
+                <Monitor size={20} />
+                Dispositivos
+              </Link>
+              <Link href="/settings/activation-codes" onClick={closeSidebar} className={`flex min-h-11 items-center gap-2 px-3 py-2 rounded transition ${pathname?.startsWith('/settings/activation-codes') ? 'bg-blue-600' : 'hover:bg-slate-800'}`}>
+                <QrCode size={20} />
+                Códigos de Ativação
+              </Link>
             </>
           )}
         </nav>
@@ -85,9 +93,16 @@ export function DashboardLayoutInner({ children, user, unreadCount }: DashboardL
             <p className="font-semibold truncate">{user.name}</p>
             <p className="text-slate-400 text-xs truncate">{user.role}</p>
           </div>
-          <Link aria-label="Sair" href="/api/auth/signout" className="grid min-h-11 min-w-11 place-items-center text-slate-400 hover:text-white shrink-0">
+          <button
+            aria-label="Sair"
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" });
+              window.location.href = "/login";
+            }}
+            className="grid min-h-11 min-w-11 place-items-center text-slate-400 hover:text-white shrink-0"
+          >
             <LogOut size={20} />
-          </Link>
+          </button>
         </div>
       </aside>
 

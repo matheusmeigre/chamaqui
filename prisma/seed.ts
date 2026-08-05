@@ -44,29 +44,53 @@ async function main() {
   console.log('✅ Categorias criadas/verificadas (duplicatas removidas).');
 
   // As identidades ficam no banco, mas as chaves de acesso existem somente no ambiente.
+  const orgHdl = await prisma.organization.upsert({
+    where: { slug: 'hdl' },
+    update: { name: 'HDL Soluções', email: 'hdl@chamaqui.local', enabled: true },
+    create: {
+      slug: 'hdl',
+      name: 'HDL Soluções',
+      email: 'hdl@chamaqui.local',
+      enabled: true,
+    },
+  });
+
+  const orgInstituto = await prisma.organization.upsert({
+    where: { slug: 'instituto-energisa' },
+    update: { name: 'Instituto Energisa', email: 'instituto.energisa@chamaqui.local', enabled: true },
+    create: {
+      slug: 'instituto-energisa',
+      name: 'Instituto Energisa',
+      email: 'instituto.energisa@chamaqui.local',
+      enabled: true,
+    },
+  });
+
   const admin = await prisma.user.upsert({
     where: { email: 'hdl@chamaqui.local' },
-    update: { name: 'HDL', role: 'ADMINISTRADOR' },
+    update: { name: 'HDL', role: 'ADMINISTRADOR', organizationId: orgHdl.id },
     create: {
       email: 'hdl@chamaqui.local',
       name: 'HDL',
       role: 'ADMINISTRADOR',
+      organizationId: orgHdl.id,
     },
   });
 
-  console.log(`✅ Admin criado/verificado: ${admin.email}`);
+  console.log(`✅ Admin criado/verificado: ${admin.email} (org ${orgHdl.slug})`);
 
   const solicitante = await prisma.user.upsert({
     where: { email: 'instituto.energisa@chamaqui.local' },
-    update: { name: 'Instituto Energisa', role: 'SOLICITANTE' },
+    update: { name: 'Instituto Energisa', role: 'SOLICITANTE', organizationId: orgInstituto.id },
     create: {
       email: 'instituto.energisa@chamaqui.local',
       name: 'Instituto Energisa',
       role: 'SOLICITANTE',
+      organizationId: orgInstituto.id,
     },
   });
 
-  console.log(`✅ Solicitante criado/verificado: ${solicitante.email}`);
+  console.log(`✅ Solicitante criado/verificado: ${solicitante.email} (org ${orgInstituto.slug})`);
 
   console.log('🌱 Banco Populado com Sucesso!');
 }
