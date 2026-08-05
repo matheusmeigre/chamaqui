@@ -3,10 +3,10 @@ import { ArrowRight, Ticket, Clock, ShieldCheck } from 'lucide-react';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-[100dvh] bg-slate-50 flex flex-col pt-[env(safe-area-inset-top)]">
       {/* Header */}
       <header className="w-full bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Ticket className="h-8 w-8 text-blue-600" />
             <span className="text-2xl font-bold text-slate-900">Chamaqui</span>
@@ -14,7 +14,7 @@ export default function Home() {
           <nav>
             <Link 
               href="/api/auth/signin" 
-              className="inline-flex items-center justify-center px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+              className="inline-flex min-h-11 items-center justify-center px-4 sm:px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
             >
               Entrar
             </Link>
@@ -23,9 +23,9 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 text-center">
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6">
-          Sua Gestão de TI,<br />
+      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 py-12 text-center">
+        <h1 className="text-3xl min-[360px]:text-4xl sm:text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6">
+          Sua Gestão de TI,<br className="hidden min-[360px]:block" />
           <span className="text-blue-600">Simplificada.</span>
         </h1>
         <p className="max-w-2xl text-lg sm:text-xl text-slate-600 mb-10">
@@ -40,7 +40,7 @@ export default function Home() {
         </Link>
 
         {/* Features Preview */}
-        <div className="mt-24 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-5xl w-full">
+        <div className="mt-16 md:mt-24 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 max-w-5xl w-full">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
             <div className="p-3 bg-blue-50 text-blue-600 rounded-full mb-4">
               <Ticket className="h-6 w-6" />
@@ -65,7 +65,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="w-full text-center p-6 text-slate-500 text-sm">
+      <footer className="w-full text-center px-4 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-slate-500 text-sm">
         &copy; {new Date().getFullYear()} Plataforma Chamaqui. Todos os direitos reservados.
       </footer>
     </div>

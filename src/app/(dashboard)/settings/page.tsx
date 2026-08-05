@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Settings as SettingsIcon, Bell, Shield as ShieldIcon, Globe } from "lucide-react";
+import { Settings as SettingsIcon, Bell, Globe } from "lucide-react";
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
@@ -13,8 +13,8 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <SettingsIcon className="text-gray-800" size={28} />
-        <h2 className="text-2xl font-bold text-gray-800">Configurações do Sistema</h2>
+        <SettingsIcon className="shrink-0 text-gray-800" size={28} />
+        <h2 className="break-words text-2xl font-bold text-gray-800">Configurações do Sistema</h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

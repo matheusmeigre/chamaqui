@@ -2,11 +2,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { PlusCircle, Search } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import type { Priority, TicketStatus } from "@prisma/client";
 
-const statusColors: any = {
+const statusColors: Record<TicketStatus, string> = {
   ABERTO: "bg-blue-100 text-blue-800",
   EM_TRIAGEM: "bg-purple-100 text-purple-800",
   EM_ATENDIMENTO: "bg-amber-100 text-amber-800",
@@ -16,7 +17,7 @@ const statusColors: any = {
   CANCELADO: "bg-red-100 text-red-800",
 };
 
-const priorityColors: any = {
+const priorityColors: Record<Priority, string> = {
   BAIXA: "text-green-600",
   MEDIA: "text-blue-600",
   ALTA: "text-amber-600",
@@ -45,17 +46,42 @@ export default async function TicketsPage() {
         <h2 className="text-2xl font-bold text-gray-800">Meus Chamados</h2>
         <Link 
           href="/tickets/new"
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          className="flex min-h-11 w-full sm:w-auto items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
         >
           <PlusCircle size={20} />
           Novo Chamado
         </Link>
       </div>
 
-      {/* Lista / Tabela */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="space-y-3 md:hidden">
+        {tickets.length === 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">
+            Nenhum chamado encontrado.
+          </div>
+        )}
+        {tickets.map((ticket) => (
+          <Link key={ticket.id} href={`/tickets/${ticket.id}`} className="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm active:bg-slate-50">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="break-words font-semibold text-slate-900">{ticket.title}</p>
+                <p className="mt-1 truncate text-xs text-slate-400">{ticket.id.split('-')[0].toUpperCase()} | {ticket.requester.name}</p>
+              </div>
+              <span className={`shrink-0 px-2 py-1 rounded-full text-[11px] font-medium whitespace-nowrap ${statusColors[ticket.status]}`}>
+                {ticket.status.replace("_", " ")}
+              </span>
+            </div>
+            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-sm">
+              <div><dt className="text-xs text-slate-400">Prioridade</dt><dd className={`font-medium ${priorityColors[ticket.priority]}`}>{ticket.priority}</dd></div>
+              <div><dt className="text-xs text-slate-400">Categoria</dt><dd className="truncate text-slate-700">{ticket.category.name}</dd></div>
+              <div className="col-span-2"><dt className="text-xs text-slate-400">Criado em</dt><dd className="text-slate-700">{format(new Date(ticket.createdAt), "dd MMM yyyy, HH:mm", { locale: ptBR })}</dd></div>
+            </dl>
+          </Link>
+        ))}
+      </div>
+
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
+          <table className="min-w-[840px] w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-700 font-medium border-b border-slate-200">
               <tr>
                 <th className="px-6 py-4">ID / Título</th>
