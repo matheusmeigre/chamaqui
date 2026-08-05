@@ -44,7 +44,6 @@ model User {
   id            String    @id @default(uuid())
   name          String
   email         String    @unique
-  passwordHash  String
   role          Role      @default(SOLICITANTE)
   
   // Relações
@@ -57,9 +56,21 @@ model User {
   updatedAt     DateTime  @updatedAt
 }
 
+model AuthThrottle {
+  organization   String
+  clientHash     String
+  failedAttempts Int       @default(0)
+  windowStartedAt DateTime @default(now())
+  blockedUntil   DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@id([organization, clientHash])
+  @@index([updatedAt])
+}
+
 model Category {
   id          String    @id @default(uuid())
-  name        String
+  name        String    @unique
   description String?
   
   // SLA em horas úteis padrão para esta categoria

@@ -5,13 +5,15 @@ import prisma from "@/lib/prisma";
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
 
-  // Exemplo de métricas baseadas no Prisma e Role do Usuário
-  const totalTickets = await prisma.ticket.count();
-  const openTickets = await prisma.ticket.count({ where: { status: "ABERTO" } });
+  const userScope = session?.user.role === "SOLICITANTE"
+    ? { requesterId: session.user.id }
+    : {};
+  const totalTickets = await prisma.ticket.count({ where: userScope });
+  const openTickets = await prisma.ticket.count({ where: { ...userScope, status: "ABERTO" } });
   
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Bem-vindo, {session?.user?.name}</h2>
+      <h2 className="break-words text-2xl font-bold text-gray-800">Bem-vindo, {session?.user?.name}</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
