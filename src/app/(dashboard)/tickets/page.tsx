@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
@@ -25,10 +24,10 @@ const priorityColors: Record<Priority, string> = {
 };
 
 export default async function TicketsPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getCurrentUser();
   
   // Filtrar chamados se for Solicitante
-  const whereClause = session?.user.role === "SOLICITANTE" ? { requesterId: session.user.id } : {};
+  const whereClause = session?.role === "SOLICITANTE" ? { requesterId: session.id } : {};
 
   const tickets = await prisma.ticket.findMany({
     where: whereClause,

@@ -1,58 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chamaqui — Portal de Chamados
+
+Portal de chamados de TI com autenticação por dispositivo (código curto / QR Code) e suporte multi-organização.
+
+## Stack
+
+- **Next.js 16** (App Router) + React 19 + Tailwind CSS 4
+- **Prisma 7** + PostgreSQL (Supabase)
+- **JWT (jose)** para access/device tokens, **AES-256-GCM** para refresh tokens em repouso
+- Sem next-auth — autenticação própria por ativação de dispositivo
 
 ## Getting Started
 
-First, run the development server:
+Configure o ambiente:
 
 ```bash
+cp .env.example .env
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variáveis de ambiente
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-### Authentication environment variables
-
-Configure these server-side variables for each Vercel environment. Do not prefix them with `NEXT_PUBLIC_`:
+Variáveis de servidor (não prefixar com `NEXT_PUBLIC_`):
 
 ```dotenv
+DATABASE_URL="postgres://..."
+DIRECT_URL="postgres://..."
+
+# Autenticação por dispositivo
+AUTH_TOKEN_SECRET="use-a-unique-random-secret"     # ≥16 chars; assina access e device tokens
+TOKEN_ENCRYPTION_KEY="hex:<64 hex chars>"           # 32 bytes; encripta refresh tokens em repouso
+AUTH_FINGERPRINT_SECRET="use-another-random-secret" # ≥16 chars; HMAC do fingerprint do dispositivo
+
+# Legados (mantidos por compatibilidade)
+NEXTAUTH_SECRET="use-an-independent-secret"
+AUTH_RATE_LIMIT_SECRET="use-a-third-random-secret"
 INSTITUTO_ENERGISA_ACCESS_KEY="use-a-unique-random-key"
 HDL_ACCESS_KEY="use-a-different-unique-random-key"
-AUTH_RATE_LIMIT_SECRET="use-a-third-random-secret"
-NEXTAUTH_SECRET="use-an-independent-nextauth-secret"
+
+NEXT_PUBLIC_SUPABASE_URL="https://xxx.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
 ```
 
-The database stores only the organization identities and login throttling state. Access keys and client IP addresses are never persisted. After five invalid attempts for the same organization and client, access is blocked for five minutes.
+## Fluxo de autenticação
 
-### Database setup
+1. O usuário escolhe a organização na tela `/login`.
+2. Um código curto (`XXXX-XXXX`, uso único, expira em 30 dias) ou QR Code ativa o dispositivo.
+3. O dispositivo recebe: **access token** (15 min), **refresh token** (30 dias, criptografado em repouso) e **device token** (180 dias).
+4. O refresh token sofre **rotação a cada uso** (o antigo é revogado).
+5. **Revogação centralizada**: admins podem revogar dispositivos em `/settings/devices`; a revogação é verificada a cada acesso.
+6. **Device binding**: cada dispositivo é vinculado a um fingerprint (userAgent + plataforma + ID de cliente). Sessões em devices revogados são invalidadas na hora.
 
-For a brand new/clean database, apply the full schema and the initial data. There are two equivalent options:
+## Database setup
 
-**Option A — Prisma Migrate (recommended)**
+Para um banco novo/limpo, aplique o schema e os dados iniciais:
 
 ```bash
 npm install
@@ -60,10 +63,16 @@ npx prisma migrate deploy
 npm run seed
 ```
 
-**Option B — SQL script (Supabase SQL editor)**
+Alternativa: executar `prisma/supabase-init.sql` no editor SQL do Supabase.
 
-Run the complete, idempotent script `prisma/supabase-init.sql` in the Supabase SQL editor. It creates the full schema, the two organization identities and the base categories. The seed above becomes optional.
+O fluxo de login também auto-provê as organizações no primeiro acesso; categorias são inseridas apenas pelo seed/script init.
 
-After either option, configure the environment variables listed above and start the app.
+## Scripts
 
-The login itself also self-provisions the organization identities on first successful login, so the application works even if the seed was not executed (categories, however, are only inserted by the seed/init script).
+```bash
+npm run dev      # servidor de desenvolvimento
+npm run build    # prisma generate + next build
+npm run start    # servidor de produção
+npm run lint     # eslint
+npm run seed     # seed inicial (organizações, categorias)
+```

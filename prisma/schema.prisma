@@ -36,22 +36,47 @@ enum Priority {
   CRITICA
 }
 
+enum DeviceStatus {
+  ATIVO
+  REVOGADO
+}
+
 // ----------------------------------------------------------------------------
 // 2. MODELS
 // ----------------------------------------------------------------------------
+
+model Organization {
+  id         String   @id @default(uuid())
+  slug       String   @unique
+  name       String
+  email      String   @unique // Identidade canônica do usuário da organização
+  enabled    Boolean  @default(true)
+
+  // Relações
+  users           User[]
+  devices         Device[]
+  activationCodes ActivationCode[]
+  auditLogs       AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
 model User {
   id            String    @id @default(uuid())
   name          String
   email         String    @unique
   role          Role      @default(SOLICITANTE)
-  
+
   // Relações
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  devices        Device[]
   createdTickets Ticket[]   @relation("Solicitante")
   assignedTickets Ticket[]  @relation("Atendente")
-  comments        Comment[]
-  notifications   Notification[]
-  
+  comments       Comment[]
+  notifications  Notification[]
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -143,4 +168,91 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+}
+
+// ----------------------------------------------------------------------------
+// 3. AUTENTICAÇÃO POR DISPOSITIVO
+// ----------------------------------------------------------------------------
+
+model Device {
+  id             String       @id @default(uuid())
+  name           String       // Ex: "Notebook do João"
+  fingerprintHash String      // Hash do fingerprint do navegador/dispositivo (device binding)
+  platform       String?      // Ex: "Windows", "Android", "iOS"
+  browser        String?      // Ex: "Chrome", "Safari"
+  lastIp         String?
+  lastSeenAt     DateTime?
+  status         DeviceStatus @default(ATIVO)
+  revokedAt      DateTime?
+
+  // Relações
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  refreshTokens   RefreshToken[]
+  auditLogs       AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([status])
+}
+
+model ActivationCode {
+  id             String   @id @default(uuid())
+  codeHash       String   @unique // Armazenamos apenas o hash do código curto
+  role           Role     @default(SOLICITANTE) // Permissão concedida pela ativação
+  expiresAt      DateTime
+  usedAt         DateTime?
+  usedByDeviceId String?
+
+  // Relações
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id             String   @id @default(uuid())
+  tokenHash      String   @unique   // SHA-256 do token (nunca armazenamos texto puro)
+  tokenEncrypted String   @db.Text  // Valor criptografado (AES-256-GCM)
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  replacedById   String?  // Rotação: novo token que substituiu este
+
+  // Relações
+  deviceId String
+  device   Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([deviceId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id       String @id @default(uuid())
+  action   String // Ex: "DEVICE_ACTIVATED", "DEVICE_REVOKED", "LOGIN", "LOGOUT", "CODE_GENERATED"
+
+  // Relações (opcionais para preservar o registro mesmo se o recurso for removido)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  userId         String?
+  deviceId       String?
+  device         Device?       @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([createdAt])
 }

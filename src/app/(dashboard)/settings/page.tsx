@@ -1,12 +1,11 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import { Settings as SettingsIcon, Bell, Globe } from "lucide-react";
 
 export default async function SettingsPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getCurrentUser();
   
-  if (!session || session.user.role !== "ADMINISTRADOR") {
+  if (!session || session.role !== "ADMINISTRADOR") {
     redirect("/dashboard");
   }
 

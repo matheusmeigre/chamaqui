@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
@@ -8,11 +7,11 @@ import { markNotificationAsRead, markAllNotificationsAsRead } from "@/app/action
 import { NotificationLink } from "@/components/notifications/NotificationLink";
 
 export default async function NotificationsPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getCurrentUser();
   if (!session) redirect("/login");
 
   const notifications = await prisma.notification.findMany({
-    where: { userId: session.user.id },
+    where: { userId: session.id },
     orderBy: { createdAt: "desc" },
   });
 

@@ -1,13 +1,12 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { UserPlus, Shield } from "lucide-react";
 
 export default async function UsersPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getCurrentUser();
   
-  if (!session || session.user.role !== "ADMINISTRADOR") {
+  if (!session || session.role !== "ADMINISTRADOR") {
     redirect("/dashboard");
   }
 

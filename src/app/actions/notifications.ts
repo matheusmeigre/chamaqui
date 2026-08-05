@@ -1,7 +1,6 @@
 "use server";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import {
   markAllNotificationsAsRead as markAllNotificationsReadService,
@@ -9,19 +8,19 @@ import {
 } from "@/server/services/notification-service";
 
 export async function markNotificationAsRead(id: string) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Não autorizado");
+  const session = await getCurrentUser();
+  if (!session) throw new Error("Não autorizado");
 
-  await markNotificationReadService(id, session.user.id);
+  await markNotificationReadService(id, session.id);
 
   revalidatePath("/notifications");
 }
 
 export async function markAllNotificationsAsRead() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Não autorizado");
+  const session = await getCurrentUser();
+  if (!session) throw new Error("Não autorizado");
 
-  await markAllNotificationsReadService(session.user.id);
+  await markAllNotificationsReadService(session.id);
 
   revalidatePath("/notifications");
 }
