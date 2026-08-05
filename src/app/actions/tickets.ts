@@ -1,15 +1,14 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import type { TicketStatus } from "@prisma/client";
 
 export async function createTicket(formData: FormData) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Não autorizado");
+  const session = await getCurrentUser();
+  if (!session) throw new Error("Não autorizado");
 
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
@@ -24,7 +23,7 @@ export async function createTicket(formData: FormData) {
     if (file.size > 0) {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `user_${session.user.id}/${fileName}`;
+      const filePath = `user_${session.id}/${fileName}`;
 
       const { data, error } = await supabase.storage
         .from('tickets') // O nome do bucket criado no Supabase
@@ -49,7 +48,7 @@ export async function createTicket(formData: FormData) {
       description,
       priority,
       categoryId,
-      requesterId: session.user.id,
+      requesterId: session.id,
       status: "ABERTO",
       attachmentUrls,
     }
@@ -59,25 +58,25 @@ export async function createTicket(formData: FormData) {
 }
 
 export async function updateTicketStatus(ticketId: string, status: TicketStatus) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role === "SOLICITANTE") throw new Error("Não autorizado");
+  const session = await getCurrentUser();
+  if (!session || session.role === "SOLICITANTE") throw new Error("Não autorizado");
 
   const ticket = await prisma.ticket.update({
     where: { id: ticketId },
-    data: { status, assigneeId: session.user.role === "ATENDENTE" ? session.user.id : undefined }
+    data: { status, assigneeId: session.role === "ATENDENTE" ? session.id : undefined }
   });
 
   await prisma.comment.create({
     data: {
       content: `Status alterado para ${status}.`,
       ticketId: ticket.id,
-      authorId: session.user.id,
+      authorId: session.id,
       isSystem: true
     }
   });
 
   // Notificar o solicitante
-  if (ticket.requesterId !== session.user.id) {
+  if (ticket.requesterId !== session.id) {
     const isPending = status === "PENDENTE";
     await prisma.notification.create({
       data: {
@@ -98,8 +97,8 @@ export async function updateTicketStatus(ticketId: string, status: TicketStatus)
 }
 
 export async function addComment(formData: FormData) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Não autorizado");
+  const session = await getCurrentUser();
+  if (!session) throw new Error("Não autorizado");
 
   const ticketId = formData.get("ticketId") as string;
   const content = formData.get("content") as string;
@@ -107,7 +106,7 @@ export async function addComment(formData: FormData) {
   const ticket = await prisma.ticket.findFirst({
     where: {
       id: ticketId,
-      ...(session.user.role === "SOLICITANTE" ? { requesterId: session.user.id } : {}),
+      ...(session.role === "SOLICITANTE" ? { requesterId: session.id } : {}),
     },
   });
   if (!ticket) throw new Error("Não autorizado");
@@ -120,7 +119,7 @@ export async function addComment(formData: FormData) {
     if (file.size > 0) {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `comments_user_${session.user.id}/${fileName}`;
+      const filePath = `comments_user_${session.id}/${fileName}`;
 
       const { data, error } = await supabase.storage
         .from('tickets') 
@@ -139,21 +138,21 @@ export async function addComment(formData: FormData) {
     data: {
       content,
       ticketId,
-      authorId: session.user.id,
+      authorId: session.id,
       isSystem: false,
       attachmentUrls
     }
   });
 
   if (ticket) {
-    const notifyUserId = session.user.id === ticket.requesterId ? ticket.assigneeId : ticket.requesterId;
+    const notifyUserId = session.id === ticket.requesterId ? ticket.assigneeId : ticket.requesterId;
     
     if (notifyUserId) {
       await prisma.notification.create({
         data: {
           userId: notifyUserId,
           title: `Nova mensagem no Chamado #${ticket.id.split('-')[0]}`,
-          message: `${session.user.name} respondeu: "${content.length > 50 ? content.substring(0, 50) + '...' : content}"`,
+          message: `${session.name} respondeu: "${content.length > 50 ? content.substring(0, 50) + '...' : content}"`,
           link: `/tickets/${ticket.id}`
         }
       });
@@ -164,15 +163,15 @@ export async function addComment(formData: FormData) {
 }
 
 export async function resolveTicketCustomer(formData: FormData) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Não autorizado");
+  const session = await getCurrentUser();
+  if (!session) throw new Error("Não autorizado");
 
   const ticketId = formData.get("ticketId") as string;
   const rating = Number(formData.get("rating"));
   const ratingNotes = formData.get("ratingNotes") as string;
 
   const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
-  if (!ticket || ticket.requesterId !== session.user.id) throw new Error("Não autorizado");
+  if (!ticket || ticket.requesterId !== session.id) throw new Error("Não autorizado");
 
   await prisma.ticket.update({
     where: { id: ticketId },
@@ -188,7 +187,7 @@ export async function resolveTicketCustomer(formData: FormData) {
     data: {
       content: `Chamado validado e finalizado pelo usuário.\nNota: ${rating}/5.\nComentário: ${ratingNotes || "Sem comentários."}`,
       ticketId,
-      authorId: session.user.id,
+      authorId: session.id,
       isSystem: true
     }
   });
@@ -210,14 +209,14 @@ export async function resolveTicketCustomer(formData: FormData) {
 }
 
 export async function reopenTicketCustomer(formData: FormData) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Não autorizado");
+  const session = await getCurrentUser();
+  if (!session) throw new Error("Não autorizado");
 
   const ticketId = formData.get("ticketId") as string;
   const reason = formData.get("reason") as string;
 
   const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
-  if (!ticket || ticket.requesterId !== session.user.id) throw new Error("Não autorizado");
+  if (!ticket || ticket.requesterId !== session.id) throw new Error("Não autorizado");
 
   await prisma.ticket.update({
     where: { id: ticketId },
@@ -228,7 +227,7 @@ export async function reopenTicketCustomer(formData: FormData) {
     data: {
       content: `O usuário rejeitou a solução e o chamado foi REABERTO.\nMotivo: ${reason}`,
       ticketId,
-      authorId: session.user.id,
+      authorId: session.id,
       isSystem: true
     }
   });

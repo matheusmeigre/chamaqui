@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/session";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -51,7 +50,7 @@ const statusPill: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getCurrentUser();
   const headerList = await headers();
   const host = headerList.get("host");
   const protocol = headerList.get("x-forwarded-proto") ?? "http";
@@ -72,8 +71,8 @@ export default async function DashboardPage() {
         statusDistribution: [],
       };
 
-  const { recentTickets, recentNotifications } = session?.user
-    ? await getDashboardActivity({ userId: session.user.id, role: session.user.role })
+  const { recentTickets, recentNotifications } = session
+    ? await getDashboardActivity({ userId: session.id, role: session.role })
     : { recentTickets: [], recentNotifications: [] };
 
   const maxStatusCount = Math.max(
@@ -83,7 +82,7 @@ export default async function DashboardPage() {
   
   return (
     <div className="space-y-6">
-      <h2 className="break-words text-2xl font-bold text-gray-800">Bem-vindo, {session?.user?.name}</h2>
+      <h2 className="break-words text-2xl font-bold text-gray-800">Bem-vindo, {session?.name}</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
