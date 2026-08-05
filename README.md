@@ -40,6 +40,11 @@ AUTH_RATE_LIMIT_SECRET="use-a-third-random-secret"
 INSTITUTO_ENERGISA_ACCESS_KEY="use-a-unique-random-key"
 HDL_ACCESS_KEY="use-a-different-unique-random-key"
 
+# Chaves de acesso das organizações (bootstrap)
+# Convenção: ORG_ACCESS_KEY_<SLUG> (traços viram underscore, tudo maiúsculo)
+ORG_ACCESS_KEY_HDL="use-a-unique-random-key"
+ORG_ACCESS_KEY_INSTITUTO_ENERGISA="use-a-different-unique-random-key"
+
 NEXT_PUBLIC_SUPABASE_URL="https://xxx.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
 ```
@@ -52,6 +57,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
 4. O refresh token sofre **rotação a cada uso** (o antigo é revogado).
 5. **Revogação centralizada**: admins podem revogar dispositivos em `/settings/devices`; a revogação é verificada a cada acesso.
 6. **Device binding**: cada dispositivo é vinculado a um fingerprint (userAgent + plataforma + ID de cliente). Sessões em devices revogados são invalidadas na hora.
+
+## Primeiro acesso (bootstrap)
+
+Para o primeiro login não é preciso ser admin antes: na tela `/login`, use "Sou responsável pela organização — gerar código de acesso" e informe a **chave de acesso** da organização (`ORG_ACCESS_KEY_<SLUG>` ou as variáveis legadas `HDL_ACCESS_KEY`/`INSTITUTO_ENERGISA_ACCESS_KEY`). O sistema gera um código de ativação de administrador de uso único (válido 24h), com o qual o dispositivo é ativado. Depois disso, os demais códigos são gerados em **Configurações → Códigos de Ativação**.
 
 ## Database setup
 
