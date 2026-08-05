@@ -33,8 +33,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
   if (!ticket) redirect("/tickets");
 
-  const isAttendantOrAdmin = session.role === "ATENDENTE" || session.role === "ADMINISTRADOR";
-  const canChangeStatus = isAttendantOrAdmin;
+  const canChangeStatus = session.role === "ADMINISTRADOR";
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">

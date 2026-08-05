@@ -6,7 +6,7 @@ import {
   generateActivationCode,
   hashActivationCode,
 } from "@/lib/auth/tokens";
-import { ACTIVATION_CODE_TTL_SECONDS } from "@/lib/auth/config";
+import { ACTIVATION_CODE_TTL_SECONDS, isAdminOrganization } from "@/lib/auth/config";
 import { writeAuditLog } from "@/lib/auth/auth";
 
 // GET /api/admin/activation-codes — lista códigos da organização do admin
@@ -40,8 +40,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Organizacao invalida" }, { status: 400 });
   }
 
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { slug: true },
+  });
+  if (!organization) {
+    return NextResponse.json({ error: "Organizacao invalida" }, { status: 400 });
+  }
+
   const body = await request.json().catch(() => null);
-  const role = body?.role === "ADMINISTRADOR" || body?.role === "ATENDENTE" ? body.role : "SOLICITANTE";
+  const requestedRole = body?.role;
+
+  // Apenas a organização HDL pode gerar códigos de administrador.
+  // Demais organizações ficam restritas a SOLICITANTE.
+  let role: "ADMINISTRADOR" | "SOLICITANTE" = "SOLICITANTE";
+  if (requestedRole === "ADMINISTRADOR" || requestedRole === "SOLICITANTE") {
+    role = requestedRole;
+  }
+  if (role === "ADMINISTRADOR" && !isAdminOrganization(organization.slug)) {
+    role = "SOLICITANTE";
+  }
   const ttl = Number.isInteger(body?.ttlDays) && body.ttlDays > 0 && body.ttlDays <= 30
     ? body.ttlDays * 24 * 60 * 60
     : ACTIVATION_CODE_TTL_SECONDS;

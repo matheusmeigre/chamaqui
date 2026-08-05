@@ -14,7 +14,13 @@ type Code = {
   createdAt: string;
 };
 
-export function ActivationCodesPanel({ codes: initialCodes }: { codes: Code[] }) {
+export function ActivationCodesPanel({
+  codes: initialCodes,
+  isAdminOrganization,
+}: {
+  codes: Code[];
+  isAdminOrganization: boolean;
+}) {
   const [codes, setCodes] = useState(initialCodes);
   const [showCode, setShowCode] = useState<string | null>(null);
   const [plainCode, setPlainCode] = useState("");
@@ -121,7 +127,7 @@ export function ActivationCodesPanel({ codes: initialCodes }: { codes: Code[] })
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             onClick={() => generate("SOLICITANTE", 30)}
             disabled={generating}
@@ -130,22 +136,16 @@ export function ActivationCodesPanel({ codes: initialCodes }: { codes: Code[] })
             {generating ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
             Gerar (Solicitante)
           </button>
-          <button
-            onClick={() => generate("ATENDENTE", 30)}
-            disabled={generating}
-            className="min-h-11 rounded-lg bg-slate-700 text-white text-sm font-medium hover:bg-slate-800 px-4 py-2 transition disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {generating ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-            Gerar (Atendente)
-          </button>
-          <button
-            onClick={() => generate("ADMINISTRADOR", 30)}
-            disabled={generating}
-            className="min-h-11 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-black px-4 py-2 transition disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {generating ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-            Gerar (Admin)
-          </button>
+          {isAdminOrganization && (
+            <button
+              onClick={() => generate("ADMINISTRADOR", 30)}
+              disabled={generating}
+              className="min-h-11 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-black px-4 py-2 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {generating ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+              Gerar (Admin)
+            </button>
+          )}
         </div>
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

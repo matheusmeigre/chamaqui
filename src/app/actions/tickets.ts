@@ -63,7 +63,7 @@ export async function updateTicketStatus(ticketId: string, status: TicketStatus)
 
   const ticket = await prisma.ticket.update({
     where: { id: ticketId },
-    data: { status, assigneeId: session.role === "ATENDENTE" ? session.id : undefined }
+    data: { status, assigneeId: session.role === "ADMINISTRADOR" ? session.id : undefined }
   });
 
   await prisma.comment.create({
