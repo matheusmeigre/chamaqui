@@ -72,11 +72,14 @@ export default async function DashboardPage() {
         statusDistribution: [],
       };
 
-  const userScope = session?.user.role === "SOLICITANTE"
-    ? { requesterId: session.user.id }
-    : {};
-  const totalTickets = await prisma.ticket.count({ where: userScope });
-  const openTickets = await prisma.ticket.count({ where: { ...userScope, status: "ABERTO" } });
+  const { recentTickets, recentNotifications } = session?.user
+    ? await getDashboardActivity({ userId: session.user.id, role: session.user.role })
+    : { recentTickets: [], recentNotifications: [] };
+
+  const maxStatusCount = Math.max(
+    1,
+    ...metrics.statusDistribution.map((item) => item.count)
+  );
   
   return (
     <div className="space-y-6">
