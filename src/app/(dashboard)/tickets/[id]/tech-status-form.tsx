@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { updateTicketStatus } from "@/app/actions/tickets";
+import type { TicketStatus } from "@prisma/client";
 
 const STATUS_LABELS: Record<string, string> = {
   ABERTO: "Aberto",
@@ -38,7 +39,7 @@ export function TechStatusForm({ ticketId, currentStatus }: Props) {
 
     startTransition(async () => {
       try {
-        await updateTicketStatus(ticketId, selectedStatus);
+        await updateTicketStatus(ticketId, selectedStatus as TicketStatus);
         setFeedback({
           type: "success",
           message: `Status alterado para "${STATUS_LABELS[selectedStatus]}" com sucesso!`,

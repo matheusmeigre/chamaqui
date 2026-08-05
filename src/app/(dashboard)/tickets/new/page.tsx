@@ -26,13 +26,13 @@ export default async function NewTicketPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/tickets" className="p-2 hover:bg-slate-200 rounded-full transition text-slate-500">
+        <Link aria-label="Voltar aos chamados" href="/tickets" className="grid min-h-11 min-w-11 shrink-0 place-items-center hover:bg-slate-200 rounded-full transition text-slate-500">
           <ArrowLeft size={20} />
         </Link>
-        <h2 className="text-2xl font-bold text-gray-800">Abrir Novo Chamado</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Abrir Novo Chamado</h2>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sm:p-8">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-8">
         <form action={async (formData) => {
           "use server"
           await createTicket(formData);
@@ -51,14 +51,14 @@ export default async function NewTicketPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="space-y-1">
-              <label htmlFor="categoryId" className="flex items-center text-sm font-medium text-slate-700">Categoria <span className="text-red-500 ml-0.5">*</span><CategoryInfoTooltip /></label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="min-w-0 space-y-1">
+              <label htmlFor="categoryId" className="block text-sm font-medium text-slate-700">Categoria <span className="text-red-500">*</span></label>
               <select 
                 name="categoryId" 
                 id="categoryId" 
                 required
-                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white text-slate-900"
+                className="w-full min-w-0 border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white text-slate-900"
               >
                 <option value="">Selecione a categoria...</option>
                 {categories.map(c => (
@@ -67,13 +67,13 @@ export default async function NewTicketPage() {
               </select>
             </div>
 
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <label htmlFor="priority" className="block text-sm font-medium text-slate-700">Impacto/Prioridade <span className="text-red-500">*</span></label>
               <select 
                 name="priority" 
                 id="priority" 
                 required
-                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white text-slate-900"
+                className="w-full min-w-0 border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white text-slate-900"
               >
                 <option value="BAIXA">Baixa - Baixo impacto no trabalho</option>
                 <option value="MEDIA">Média - Dificulta mas não impede</option>
@@ -103,7 +103,7 @@ export default async function NewTicketPage() {
               id="attachments" 
               multiple 
               accept="image/*"
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm text-slate-900 bg-white file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition"
+              className="block w-full min-w-0 border border-slate-300 rounded-lg px-2 sm:px-4 py-2 text-base text-slate-900 bg-white file:mr-2 sm:file:mr-4 file:py-2 file:px-2 sm:file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition"
             />
             <p className="text-xs text-slate-500 mt-1">Você pode anexar imagens como capturas de tela para auxiliar o suporte.</p>
           </div>

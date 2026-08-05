@@ -82,8 +82,8 @@ export default async function DashboardPage() {
   );
   
   return (
-    <div className="space-y-8">
-      <h2 className="text-2xl font-bold text-gray-800">Bem-vindo, {session?.user?.name}</h2>
+    <div className="space-y-6">
+      <h2 className="break-words text-2xl font-bold text-gray-800">Bem-vindo, {session?.user?.name}</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">

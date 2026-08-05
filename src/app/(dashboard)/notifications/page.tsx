@@ -3,7 +3,6 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { Bell, Check, ExternalLink } from "lucide-react";
 import { markNotificationAsRead, markAllNotificationsAsRead } from "@/app/actions/notifications";
 import { NotificationLink } from "@/components/notifications/NotificationLink";
@@ -23,8 +22,8 @@ export default async function NotificationsPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Bell className="text-blue-500" /> Minhas Notificações
+          <h2 className="text-2xl font-bold text-gray-800 flex items-start gap-2 break-words">
+            <Bell className="shrink-0 text-blue-500" /> Minhas Notificações
           </h2>
           <p className="text-slate-500 text-sm mt-1">
             Você tem {unreadCount} notificaç{unreadCount === 1 ? "ão" : "ões"} não lida{unreadCount === 1 ? "" : "s"}.
@@ -36,7 +35,7 @@ export default async function NotificationsPage() {
             "use server"
             await markAllNotificationsAsRead();
           }}>
-            <button type="submit" className="flex items-center gap-2 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg transition font-medium">
+            <button type="submit" className="flex min-h-11 w-full sm:w-auto items-center justify-center gap-2 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg transition font-medium">
               <Check size={16} /> Marcar todas como lidas
             </button>
           </form>
@@ -45,7 +44,7 @@ export default async function NotificationsPage() {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {notifications.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">
+          <div className="p-6 sm:p-12 text-center text-slate-500">
             <Bell className="mx-auto h-12 w-12 text-slate-300 mb-3" />
             <p>Nenhuma notificação encontrada.</p>
           </div>
@@ -59,23 +58,23 @@ export default async function NotificationsPage() {
                 key={notif.id} 
                 className={`p-4 hover:bg-slate-50 transition flex items-start gap-4 ${isRead ? 'opacity-70' : 'bg-blue-50/50'}`}
               >
-                <div className="mt-1">
-                  {!isRead ? (
+                <div className="mt-1 shrink-0">
+                  {!notif.read ? (
                     <div className="w-2 h-2 bg-blue-500 rounded-full" />
                   ) : (
                     <div className="w-2 h-2 bg-transparent" />
                   )}
                 </div>
-                <div className="flex-1 space-y-1">
-                  <div className="flex justify-between items-start">
-                    <h4 className={`text-sm ${isRead ? 'font-medium text-slate-700' : 'font-semibold text-slate-900'}`}>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
+                    <h4 className={`break-words text-sm ${notif.read ? 'font-medium text-slate-700' : 'font-semibold text-slate-900'}`}>
                       {notif.title}
                     </h4>
-                    <span className="text-xs text-slate-400 whitespace-nowrap ml-4">
-                      {format(new Date(notif.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    <span className="shrink-0 text-xs text-slate-400 whitespace-nowrap sm:ml-4">
+                      {format(new Date(notif.createdAt), "dd/MM/yyyy HH:mm")}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-600">
+                  <p className="break-words text-sm text-slate-600">
                     {notif.message}
                   </p>
                   
@@ -84,7 +83,7 @@ export default async function NotificationsPage() {
                       <NotificationLink 
                         id={notif.id}
                         href={notif.link}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                        className="flex min-h-11 items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
                       >
                         Acessar link <ExternalLink size={12} />
                       </NotificationLink>
@@ -95,7 +94,7 @@ export default async function NotificationsPage() {
                         "use server"
                         await markNotificationAsRead(notif.id);
                       }}>
-                        <button type="submit" className="text-xs text-slate-500 hover:text-slate-700 font-medium">
+                        <button type="submit" className="min-h-11 text-xs text-slate-500 hover:text-slate-700 font-medium">
                           Marcar como lida
                         </button>
                       </form>
