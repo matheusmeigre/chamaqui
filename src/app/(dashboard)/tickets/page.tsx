@@ -2,8 +2,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { FormattedDate } from "@/components/FormattedDate";
 import type { Priority, TicketStatus } from "@prisma/client";
 
 const statusColors: Record<TicketStatus, string> = {
@@ -72,7 +71,7 @@ export default async function TicketsPage() {
             <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-sm">
               <div><dt className="text-xs text-slate-400">Prioridade</dt><dd className={`font-medium ${priorityColors[ticket.priority]}`}>{ticket.priority}</dd></div>
               <div><dt className="text-xs text-slate-400">Categoria</dt><dd className="truncate text-slate-700">{ticket.category.name}</dd></div>
-              <div className="col-span-2"><dt className="text-xs text-slate-400">Criado em</dt><dd className="text-slate-700">{format(new Date(ticket.createdAt), "dd MMM yyyy, HH:mm", { locale: ptBR })}</dd></div>
+              <div className="col-span-2"><dt className="text-xs text-slate-400">Criado em</dt><dd className="text-slate-700"><FormattedDate date={ticket.createdAt} pattern="dd MMM yyyy, HH:mm" /></dd></div>
             </dl>
           </Link>
         ))}
@@ -117,7 +116,7 @@ export default async function TicketsPage() {
                   </td>
                   <td className="px-6 py-4">{ticket.category.name}</td>
                   <td className="px-6 py-4 text-slate-500">
-                    {format(new Date(ticket.createdAt), "dd MMM yyyy, HH:mm", { locale: ptBR })}
+                    <FormattedDate date={ticket.createdAt} pattern="dd MMM yyyy, HH:mm" />
                   </td>
                   <td className="px-6 py-4 text-right">
                     <Link 

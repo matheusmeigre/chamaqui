@@ -2,9 +2,8 @@ import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { QrCode } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { ActivationCodesPanel } from "./activation-codes-panel";
+import { FormattedDate } from "@/components/FormattedDate";
 
 export const metadata = { title: "Códigos de Ativação | Chamaqui" };
 
@@ -72,7 +71,7 @@ export default async function ActivationCodesPage() {
               {codes.map((code) => (
                 <tr key={code.id} className="hover:bg-slate-50 transition">
                   <td className="px-6 py-4 text-slate-500">
-                    {format(new Date(code.createdAt), "dd MMM yyyy, HH:mm", { locale: ptBR })}
+                    <FormattedDate date={code.createdAt} pattern="dd MMM yyyy, HH:mm" />
                   </td>
                   <td className="px-6 py-4">
                     <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
@@ -80,7 +79,7 @@ export default async function ActivationCodesPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-slate-500">
-                    {format(new Date(code.expiresAt), "dd MMM yyyy, HH:mm", { locale: ptBR })}
+                    <FormattedDate date={code.expiresAt} pattern="dd MMM yyyy, HH:mm" />
                   </td>
                   <td className="px-6 py-4">
                     {code.usedAt ? (

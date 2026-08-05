@@ -1,9 +1,8 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { NotificationLink } from "@/components/notifications/NotificationLink";
+import { FormattedDate } from "@/components/FormattedDate";
 import { getDashboardActivity } from "@/server/services/dashboard-service";
 
 type StatusDistributionItem = {
@@ -158,7 +157,7 @@ export default async function DashboardPage() {
                           {statusLabels[ticket.status] ?? ticket.status}
                         </span>
                         <p className="text-[11px] text-slate-400">
-                          {format(new Date(ticket.updatedAt), "dd MMM, HH:mm", { locale: ptBR })}
+                          <FormattedDate date={ticket.updatedAt} pattern="dd MMM, HH:mm" />
                         </p>
                       </div>
                     </li>
@@ -184,7 +183,7 @@ export default async function DashboardPage() {
                           <p className="text-xs text-slate-500 line-clamp-2">{notification.message}</p>
                         </div>
                         <span className="text-[11px] text-slate-400 whitespace-nowrap">
-                          {format(new Date(notification.createdAt), "dd/MM HH:mm", { locale: ptBR })}
+                          <FormattedDate date={notification.createdAt} pattern="dd/MM HH:mm" />
                         </span>
                       </div>
                     );

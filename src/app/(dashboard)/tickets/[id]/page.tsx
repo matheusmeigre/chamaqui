@@ -3,10 +3,10 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { ArrowLeft, User, Calendar, Tag, MessageCircle } from "lucide-react";
 import { redirect } from "next/navigation";
-import { format } from "date-fns";
 import { updateTicketStatus, addComment } from "@/app/actions/tickets";
 import { ImageGallery } from "./image-gallery";
 import { RequesterActions } from "./requester-actions";
+import { FormattedDate } from "@/components/FormattedDate";
 import type { TicketStatus } from "@prisma/client";
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -81,13 +81,13 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                 <div key={comment.id} className={`flex ${comment.isSystem ? 'justify-center' : 'flex-col'}`}>
                   {comment.isSystem ? (
                     <span className="max-w-full break-words bg-slate-100 text-slate-600 text-xs px-3 py-1 rounded-xl font-medium text-center">
-                      {comment.content} | {format(new Date(comment.createdAt), "dd/MM HH:mm")}
+                      {comment.content} | <FormattedDate date={comment.createdAt} pattern="dd/MM HH:mm" />
                     </span>
                   ) : (
                     <div className={`p-4 rounded-lg text-sm ${comment.authorId === session.id ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50 border border-slate-100'}`}>
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 mb-2">
                         <span className="font-semibold text-gray-800 break-words">{comment.author.name}</span>
-                        <span className="shrink-0 text-xs text-slate-400">{format(new Date(comment.createdAt), "dd/MM/yyyy HH:mm")}</span>
+                        <span className="shrink-0 text-xs text-slate-400"><FormattedDate date={comment.createdAt} pattern="dd/MM/yyyy HH:mm" /></span>
                       </div>
                       <p className="text-gray-700 whitespace-pre-wrap break-words">{comment.content}</p>
                       
@@ -157,7 +157,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               </div>
               <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center">
                 <span className="text-slate-500 flex items-center gap-1"><Calendar size={16}/> Aberto em</span>
-                <span className="font-medium">{format(new Date(ticket.createdAt), "dd/MM/yyyy HH:mm")}</span>
+                <span className="font-medium"><FormattedDate date={ticket.createdAt} pattern="dd/MM/yyyy HH:mm" /></span>
               </div>
               <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center">
                 <span className="text-slate-500 flex items-center gap-1"><Tag className="shrink-0" size={16}/> Categoria</span>
