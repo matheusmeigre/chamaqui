@@ -30,7 +30,18 @@ async function main() {
       create: { name: cat.name, description: cat.description, defaultSlaHours: 24 },
     });
   }
-  console.log('✅ Categorias criadas/verificadas.');
+  // Remove duplicatas mantendo o registro mais antigo de cada nome
+  const allCategories = await prisma.category.findMany({ orderBy: { createdAt: 'asc' } });
+  const seen = new Set<string>();
+  for (const cat of allCategories) {
+    if (seen.has(cat.name)) {
+      await prisma.ticket.updateMany({ where: { categoryId: cat.id }, data: {} }); // tickets sem referência serão mantidos
+      await prisma.category.delete({ where: { id: cat.id } }).catch(() => {}); // ignora se houver tickets vinculados
+    } else {
+      seen.add(cat.name);
+    }
+  }
+  console.log('✅ Categorias criadas/verificadas (duplicatas removidas).');
 
   // As identidades ficam no banco, mas as chaves de acesso existem somente no ambiente.
   const admin = await prisma.user.upsert({

@@ -4,8 +4,8 @@ import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { Bell, Check, ExternalLink } from "lucide-react";
-import Link from "next/link";
 import { markNotificationAsRead, markAllNotificationsAsRead } from "@/app/actions/notifications";
+import { NotificationLink } from "@/components/notifications/NotificationLink";
 
 export default async function NotificationsPage() {
   const session = await getServerSession(authOptions);
@@ -16,7 +16,7 @@ export default async function NotificationsPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -50,10 +50,13 @@ export default async function NotificationsPage() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {notifications.map((notif) => (
+            {notifications.map((notif) => {
+              const isRead = notif.read;
+
+              return (
               <div 
                 key={notif.id} 
-                className={`p-4 hover:bg-slate-50 transition flex items-start gap-4 ${notif.read ? 'opacity-70' : 'bg-blue-50/50'}`}
+                className={`p-4 hover:bg-slate-50 transition flex items-start gap-4 ${isRead ? 'opacity-70' : 'bg-blue-50/50'}`}
               >
                 <div className="mt-1 shrink-0">
                   {!notif.read ? (
@@ -77,15 +80,16 @@ export default async function NotificationsPage() {
                   
                   <div className="flex items-center gap-4 mt-3 pt-2">
                     {notif.link && (
-                      <Link 
+                      <NotificationLink 
+                        id={notif.id}
                         href={notif.link}
                         className="flex min-h-11 items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
                       >
                         Acessar link <ExternalLink size={12} />
-                      </Link>
+                      </NotificationLink>
                     )}
                     
-                    {!notif.read && (
+                    {!isRead && (
                       <form action={async () => {
                         "use server"
                         await markNotificationAsRead(notif.id);
@@ -98,7 +102,8 @@ export default async function NotificationsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

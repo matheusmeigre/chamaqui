@@ -5,14 +5,22 @@ import { createTicket } from "@/app/actions/tickets";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
-import { SubmitButton } from "./submit-button"; // I will create a client component right after
+import { SubmitButton } from "./submit-button";
+import { CategoryInfoTooltip } from "@/components/CategoryInfoTooltip";
 
 export default async function NewTicketPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const categories = await prisma.category.findMany({
+  const allCategories = await prisma.category.findMany({
     orderBy: { name: 'asc' }
+  });
+  // Deduplicar por nome (defensivo caso existam registros duplicados no banco)
+  const seen = new Set<string>();
+  const categories = allCategories.filter(c => {
+    if (seen.has(c.name)) return false;
+    seen.add(c.name);
+    return true;
   });
 
   return (
