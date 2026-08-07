@@ -8,6 +8,23 @@ export function RequesterActions({ ticketId }: { ticketId: string }) {
   const [view, setView] = useState<'WAITING' | 'RESOLVING' | 'REOPENING'>('WAITING');
   const [rating, setRating] = useState(5);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  if (done) {
+    return (
+      <div className="bg-green-50 rounded-xl shadow-sm border border-green-200 p-4 sm:p-6 mb-6">
+        <h3 className="text-lg font-semibold text-green-900 mb-1">
+          {view === 'REOPENING' ? 'Chamado reaberto!' : 'Obrigado pela avaliação!'}
+        </h3>
+        <p className="text-sm text-green-800">
+          {view === 'REOPENING'
+            ? 'O chamado voltou para atendimento e você pode acompanhar as novidades na área de comentários.'
+            : 'O chamado foi finalizado e sua avaliação foi registrada.'}
+        </p>
+      </div>
+    );
+  }
 
   if (view === 'WAITING') {
     return (
@@ -34,9 +51,15 @@ export function RequesterActions({ ticketId }: { ticketId: string }) {
         <h3 className="text-lg font-semibold text-green-900 mb-4">Finalizar Chamado</h3>
         <form action={async (data) => {
           setIsLoading(true);
-          await resolveTicketCustomer(data);
-          setIsLoading(false);
-          setView('WAITING');
+          setError(null);
+          try {
+            await resolveTicketCustomer(data);
+            setDone(true);
+          } catch {
+            setError("Erro ao finalizar o chamado. Tente novamente.");
+          } finally {
+            setIsLoading(false);
+          }
         }} className="space-y-4">
           <input type="hidden" name="ticketId" value={ticketId} />
           
@@ -57,11 +80,16 @@ export function RequesterActions({ ticketId }: { ticketId: string }) {
             <textarea name="ratingNotes" rows={3} className="w-full bg-white border border-green-200 rounded-lg p-3 text-base text-slate-900 outline-none focus:ring-2 focus:ring-green-500"></textarea>
           </div>
           
-          <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end mt-4">
+          <div className="space-y-3">
+            {error && (
+              <p className="text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+            )}
+            <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
             <button type="button" onClick={() => setView('WAITING')} className="min-h-11 w-full sm:w-auto text-sm font-medium text-slate-500 hover:text-slate-700 px-4 py-2">Cancelar</button>
             <button type="submit" disabled={isLoading} className="min-h-11 w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50">
               {isLoading ? "Salvando..." : "Confirmar Resolução"}
             </button>
+            </div>
           </div>
         </form>
       </div>
@@ -74,9 +102,15 @@ export function RequesterActions({ ticketId }: { ticketId: string }) {
         <h3 className="text-lg font-semibold text-red-900 mb-4">Reabrir Chamado</h3>
         <form action={async (data) => {
           setIsLoading(true);
-          await reopenTicketCustomer(data);
-          setIsLoading(false);
-          setView('WAITING');
+          setError(null);
+          try {
+            await reopenTicketCustomer(data);
+            setDone(true);
+          } catch {
+            setError("Erro ao reabrir o chamado. Tente novamente.");
+          } finally {
+            setIsLoading(false);
+          }
         }} className="space-y-4">
            <input type="hidden" name="ticketId" value={ticketId} />
            

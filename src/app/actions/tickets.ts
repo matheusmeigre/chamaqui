@@ -176,7 +176,7 @@ export async function resolveTicketCustomer(formData: FormData) {
   await prisma.ticket.update({
     where: { id: ticketId },
     data: { 
-      status: "RESOLVIDO", 
+      status: "FECHADO", 
       rating, 
       ratingNotes, 
       resolvedAt: new Date() 
