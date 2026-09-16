@@ -32,7 +32,15 @@ export default function ActivatePage() {
       try {
         const res = await fetch(`/api/auth/activate-info?code=${encodeURIComponent(code)}`, { cache: "no-store" });
         if (!res.ok) {
-          setError("Código de ativação inválido ou expirado.");
+          // 400/404 são respostas sobre o código; o resto é o serviço falhando.
+          // Tratar os dois igual fazia um convite válido parecer inválido.
+          setError(
+            res.status === 400 || res.status === 404
+              ? "Código de ativação inválido ou expirado."
+              : res.status === 429
+                ? "Muitas tentativas. Aguarde alguns minutos e tente novamente."
+                : "Não foi possível validar o código agora. Tente novamente em instantes."
+          );
           return;
         }
         const data = await res.json();
@@ -67,6 +75,7 @@ export default function ActivatePage() {
         CODE_ALREADY_USED: "Este código já foi utilizado.",
         CODE_EXPIRED: "Este código expirou.",
         ORGANIZATION_INVALID: "Organização inválida ou desativada.",
+        LOGIN_BLOCKED: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
       };
       setError(messages[data?.error] ?? "Não foi possível ativar o dispositivo.");
       // Sem liberar a trava, uma falha transitória deixava o botão inerte.

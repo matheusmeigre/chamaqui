@@ -179,24 +179,29 @@ export async function activateDeviceWithCode({
   code,
   signals,
 }: {
-  organizationId: string;
+  /**
+   * Opcional: a organização é descoberta pelo código. Quem ainda a envia
+   * (clientes antigos) precisa enviar a correta.
+   */
+  organizationId?: string | null;
   code: string;
   signals: DeviceSignals;
 }) {
-  const organization = await prisma.organization.findUnique({
-    where: { id: organizationId },
-  });
-  if (!organization || !organization.enabled) {
-    return { error: "ORGANIZATION_INVALID" as const };
-  }
-
+  // O código vem primeiro: a tela de login não lista organizações, então é o
+  // próprio código que diz a qual organização o dispositivo pertence.
   const codeHash = hashActivationCode(code);
   const activationCode = await prisma.activationCode.findUnique({
     where: { codeHash },
+    include: { organization: true },
   });
 
-  if (!activationCode || activationCode.organizationId !== organization.id) {
+  if (!activationCode || (organizationId && activationCode.organizationId !== organizationId)) {
     return { error: "CODE_INVALID" as const };
+  }
+
+  const organization = activationCode.organization;
+  if (!organization.enabled) {
+    return { error: "ORGANIZATION_INVALID" as const };
   }
   if (activationCode.usedAt) {
     return { error: "CODE_ALREADY_USED" as const };

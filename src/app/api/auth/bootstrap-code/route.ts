@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "node:crypto";
+import type { Organization } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import {
   clearFailedLogins,
   getClientHash,
   isLoginBlocked,
   registerFailedLogin,
+  THROTTLE_BUCKETS,
 } from "@/lib/auth-throttle";
 import { generateActivationCode, hashActivationCode } from "@/lib/auth/tokens";
 import { ACTIVATION_CODE_TTL_SECONDS, isAdminOrganization } from "@/lib/auth/config";
@@ -27,43 +29,83 @@ function keysMatch(providedKey: string, expectedKey: string) {
   return timingSafeEqual(providedDigest, expectedDigest);
 }
 
+function expectedKeyFor(organization: Pick<Organization, "slug">): string | undefined {
+  const envVar = getAccessKeyEnv(organization.slug);
+  return envVar ? process.env[envVar] : undefined;
+}
+
+/**
+ * Descobre a organização dona da chave sem que ela seja informada. Compara com
+ * todas as organizações habilitadas, sem parar no primeiro acerto: o tempo de
+ * resposta não entrega a posição da organização na lista.
+ */
+async function findOrganizationByAccessKey(accessKey: string) {
+  const organizations = await prisma.organization.findMany({ where: { enabled: true } });
+  const matches = organizations.filter((organization) => {
+    const expected = expectedKeyFor(organization);
+    return expected ? keysMatch(accessKey, expected) : false;
+  });
+
+  if (matches.length > 1) {
+    // Duas organizações com a mesma chave é erro de configuração: recusar é
+    // mais seguro que escolher uma delas.
+    console.error(
+      "[bootstrap-code] chave de acesso compartilhada entre organizações:",
+      matches.map((organization) => organization.slug).join(", ")
+    );
+    return null;
+  }
+  return matches[0] ?? null;
+}
+
 // POST /api/auth/bootstrap-code
-// Gera um código de ativação (role ADMINISTRADOR) para uma organização usando a
-// chave de acesso da organização. Permite o primeiro login sem sessão admin
-// (bootstrap), resolvendo o problema ovo-e-galinha.
-// Body: { organizationId, accessKey }
+// Gera um código de ativação para uma organização usando a chave de acesso da
+// organização. Permite o primeiro login sem sessão admin (bootstrap),
+// resolvendo o problema ovo-e-galinha.
+// Body: { accessKey, organizationId? }
+//
+// A organização não precisa ser informada: a chave identifica a organização,
+// e a tela de login não expõe a lista de clientes.
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const organizationId = typeof body?.organizationId === "string" ? body.organizationId : "";
   const accessKey = typeof body?.accessKey === "string" ? body.accessKey : "";
 
-  if (!organizationId || !accessKey || accessKey.length > 256) {
+  if (!accessKey || accessKey.length > 256) {
     return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
   }
 
-  const organization = await prisma.organization.findUnique({
-    where: { id: organizationId },
-  });
-  if (!organization || !organization.enabled) {
+  // Compatibilidade: com organização informada, a contagem continua por organização.
+  const informed = organizationId
+    ? await prisma.organization.findUnique({ where: { id: organizationId } })
+    : null;
+  if (organizationId && (!informed || !informed.enabled)) {
     return NextResponse.json({ error: "ORGANIZATION_INVALID" }, { status: 404 });
   }
 
+  const throttleKey = informed ? informed.slug : THROTTLE_BUCKETS.bootstrap;
   const clientHash = getClientHash(Object.fromEntries(request.headers.entries()));
-  if (await isLoginBlocked(organization.slug, clientHash)) {
+  if (await isLoginBlocked(throttleKey, clientHash)) {
     return NextResponse.json({ error: "LOGIN_BLOCKED" }, { status: 429 });
   }
 
-  const envVar = getAccessKeyEnv(organization.slug);
-  const expectedKey = envVar ? process.env[envVar] : undefined;
-  if (!expectedKey || !keysMatch(accessKey, expectedKey)) {
-    const blockedUntil = await registerFailedLogin(organization.slug, clientHash);
+  let organization: Organization | null;
+  if (informed) {
+    const expectedKey = expectedKeyFor(informed);
+    organization = expectedKey && keysMatch(accessKey, expectedKey) ? informed : null;
+  } else {
+    organization = await findOrganizationByAccessKey(accessKey);
+  }
+
+  if (!organization) {
+    const blockedUntil = await registerFailedLogin(throttleKey, clientHash);
     if (blockedUntil) {
       return NextResponse.json({ error: "LOGIN_BLOCKED" }, { status: 429 });
     }
     return NextResponse.json({ error: "ACCESS_KEY_INVALID" }, { status: 401 });
   }
 
-  await clearFailedLogins(organization.slug, clientHash);
+  await clearFailedLogins(throttleKey, clientHash);
 
   const plainCode = generateActivationCode();
   const role = isAdminOrganization(organization.slug) ? "ADMINISTRADOR" : "SOLICITANTE";
