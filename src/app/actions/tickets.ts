@@ -4,7 +4,20 @@ import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabase";
-import type { TicketStatus } from "@prisma/client";
+import type {
+  Severity,
+  TicketCategoryCode,
+  TicketChannel,
+  TicketStatus,
+} from "@prisma/client";
+import { SEVERITY_TO_PRIORITY } from "@/server/domain/ticket-grid";
+import {
+  competencyOf,
+  normalizeUnits,
+  validateSeverity,
+} from "@/server/services/ticket-classification";
+import { evaluateP1Burst, evaluateQuotaAlerts } from "@/server/services/quota-alerts";
+import { checkExecutionGate } from "@/server/services/quota-service";
 
 export async function createTicket(formData: FormData) {
   const session = await getCurrentUser();
@@ -13,7 +26,28 @@ export async function createTicket(formData: FormData) {
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
   const categoryId = formData.get("categoryId") as string;
-  const priority = formData.get("priority") as "BAIXA" | "MEDIA" | "ALTA" | "CRITICA";
+
+  // --- Grade de Chamados: classificação na abertura --------------------------
+  const categoryCode = (formData.get("categoryCode") as TicketCategoryCode) || null;
+  if (!categoryCode) {
+    throw new Error("Selecione a categoria da grade (C1..C6).");
+  }
+
+  const rawSeverity = (formData.get("severity") as Severity) || null;
+  const severity = validateSeverity(categoryCode, rawSeverity);
+  const channel = ((formData.get("channel") as TicketChannel) || "PORTAL") as TicketChannel;
+  const units = normalizeUnits(categoryCode, Number(formData.get("units")));
+
+  // Severidade e prioridade são o mesmo eixo: quando há severidade, ela manda,
+  // para que listagens e dashboard não exibam uma classificação contraditória.
+  const priority = severity
+    ? SEVERITY_TO_PRIORITY[severity]
+    : ((formData.get("priority") as "BAIXA" | "MEDIA" | "ALTA" | "CRITICA") ?? "BAIXA");
+
+  // O marco zero do SLA é o registro no sistema, inclusive para chamados que
+  // chegaram por telefone ou e-mail: chamado fora do canal oficial não existe
+  // até ser registrado.
+  const openedAt = new Date();
 
   // Lidando com anexos (imagens)
   const files = formData.getAll("attachments") as File[];
@@ -42,7 +76,7 @@ export async function createTicket(formData: FormData) {
     }
   }
 
-  await prisma.ticket.create({
+  const ticket = await prisma.ticket.create({
     data: {
       title,
       description,
@@ -51,19 +85,70 @@ export async function createTicket(formData: FormData) {
       requesterId: session.id,
       status: "ABERTO",
       attachmentUrls,
+      categoryCode,
+      severity,
+      channel,
+      units,
+      openedAt,
+      competency: competencyOf(openedAt),
     }
   });
 
+  // Automações da grade: avisos de 80%/100% do teto e detecção de rajada de P1.
+  // Uma falha aqui não pode impedir a abertura do chamado.
+  if (session.organizationId) {
+    try {
+      await evaluateQuotaAlerts(session.organizationId, ticket.competency ?? undefined);
+      if (severity === "P1") {
+        await evaluateP1Burst(session.organizationId, openedAt);
+      }
+    } catch (error) {
+      console.error("Falha ao avaliar automações da grade:", error);
+    }
+  }
+
   revalidatePath("/tickets");
+  revalidatePath("/reports/consumption");
 }
 
 export async function updateTicketStatus(ticketId: string, status: TicketStatus) {
   const session = await getCurrentUser();
   if (!session || session.role === "SOLICITANTE") throw new Error("Não autorizado");
 
+  const current = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: {
+      categoryCode: true,
+      competency: true,
+      firstResponseAt: true,
+      overrunDecision: true,
+      requester: { select: { organizationId: true } },
+    },
+  });
+  if (!current) throw new Error("Chamado não encontrado");
+
+  // Bloqueio de execução no estouro do teto: só vale para o início do
+  // atendimento. Triagem, resposta e encerramento seguem livres, porque o
+  // compromisso é não executar sem consulta — não deixar o cliente sem retorno.
+  if (status === "EM_ATENDIMENTO" && current.requester.organizationId) {
+    const gate = await checkExecutionGate({
+      organizationId: current.requester.organizationId,
+      categoryCode: current.categoryCode,
+      competency: current.competency ?? competencyOf(new Date()),
+      overrunDecisionAlreadyTaken: current.overrunDecision !== null,
+    });
+
+    if (!gate.allowed) throw new Error(gate.message);
+  }
+
   const ticket = await prisma.ticket.update({
     where: { id: ticketId },
-    data: { status, assigneeId: session.role === "ADMINISTRADOR" ? session.id : undefined }
+    data: {
+      status,
+      assigneeId: session.role === "ADMINISTRADOR" ? session.id : undefined,
+      // A primeira manifestação técnica registra o marco de 1ª resposta do SLA.
+      ...(current.firstResponseAt ? {} : { firstResponseAt: new Date() }),
+    }
   });
 
   await prisma.comment.create({
@@ -220,7 +305,14 @@ export async function reopenTicketCustomer(formData: FormData) {
 
   await prisma.ticket.update({
     where: { id: ticketId },
-    data: { status: "EM_ATENDIMENTO" }
+    data: {
+      status: "EM_ATENDIMENTO",
+      // A solução foi rejeitada: os marcos de correção voltam a ficar em aberto
+      // para que o relógio de SLA não conte um fechamento que não se sustentou.
+      resolvedAt: null,
+      definitiveFixAt: null,
+      outcome: null,
+    }
   });
 
   await prisma.comment.create({

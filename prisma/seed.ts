@@ -19,6 +19,65 @@ const categories = [
   { name: 'Software', description: 'Erros, falhas ou dúvidas em programas instalados, licenças ou configurações de software.' },
 ];
 
+// ----------------------------------------------------------------------------
+// Calendário de feriados do relógio de SLA em horas úteis
+// ----------------------------------------------------------------------------
+
+/** Domingo de Páscoa (algoritmo de Meeus/Jones/Butcher), em UTC. */
+function easterSunday(year: number): Date {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 86_400_000);
+}
+
+type SeedHoliday = { date: Date; name: string; scope: 'NACIONAL' | 'ESTADUAL' | 'MUNICIPAL'; municipality?: string };
+
+/**
+ * Feriados nacionais (fixos e móveis) e o estadual de MG. Os feriados
+ * municipais de Cataguases, Itamarati de Minas e Leopoldina/Piacatuba NÃO são
+ * semeados aqui: as datas variam por lei municipal e precisam ser cadastradas
+ * na tabela Holiday antes da primeira apuração em produção. Semear datas
+ * presumidas falsearia o relógio de SLA.
+ */
+function holidaysForYear(year: number): SeedHoliday[] {
+  const easter = easterSunday(year);
+
+  return [
+    { date: new Date(Date.UTC(year, 0, 1)), name: `Confraternização Universal ${year}`, scope: 'NACIONAL' },
+    { date: addDays(easter, -48), name: `Carnaval (segunda) ${year}`, scope: 'NACIONAL' },
+    { date: addDays(easter, -47), name: `Carnaval (terça) ${year}`, scope: 'NACIONAL' },
+    { date: addDays(easter, -46), name: `Quarta-feira de Cinzas ${year}`, scope: 'NACIONAL' },
+    { date: addDays(easter, -2), name: `Sexta-feira Santa ${year}`, scope: 'NACIONAL' },
+    { date: new Date(Date.UTC(year, 3, 21)), name: `Tiradentes ${year}`, scope: 'NACIONAL' },
+    { date: new Date(Date.UTC(year, 4, 1)), name: `Dia do Trabalho ${year}`, scope: 'NACIONAL' },
+    { date: addDays(easter, 60), name: `Corpus Christi ${year}`, scope: 'NACIONAL' },
+    { date: new Date(Date.UTC(year, 8, 7)), name: `Independência do Brasil ${year}`, scope: 'NACIONAL' },
+    { date: new Date(Date.UTC(year, 9, 12)), name: `Nossa Senhora Aparecida ${year}`, scope: 'NACIONAL' },
+    { date: new Date(Date.UTC(year, 10, 2)), name: `Finados ${year}`, scope: 'NACIONAL' },
+    { date: new Date(Date.UTC(year, 10, 15)), name: `Proclamação da República ${year}`, scope: 'NACIONAL' },
+    { date: new Date(Date.UTC(year, 10, 20)), name: `Consciência Negra ${year}`, scope: 'NACIONAL' },
+    { date: new Date(Date.UTC(year, 11, 25)), name: `Natal ${year}`, scope: 'NACIONAL' },
+    // Minas Gerais adota Tiradentes como data magna estadual; já coberto acima
+    // pelo feriado nacional de mesma data.
+  ];
+}
+
 async function main() {
   console.log('Iniciando o seeder...');
 
@@ -91,6 +150,48 @@ async function main() {
   });
 
   console.log(`✅ Solicitante criado/verificado: ${solicitante.email} (org ${orgInstituto.slug})`);
+
+  // --------------------------------------------------------------------------
+  // Grade de Chamados: contrato de sustentação e calendário de feriados
+  // --------------------------------------------------------------------------
+
+  // O contrato pertence à organização contratante. A faixa Padrão é a
+  // recomendada na grade: 80 h/mês, reserva de 20 h para C1 e 10 h para P1.
+  const contract = await prisma.supportContract.upsert({
+    where: { organizationId: orgInstituto.id },
+    update: { tier: 'PADRAO', capacityHours: 80, active: true },
+    create: {
+      organizationId: orgInstituto.id,
+      tier: 'PADRAO',
+      capacityHours: 80,
+      active: true,
+    },
+  });
+
+  console.log(`✅ Contrato de sustentação (faixa ${contract.tier}, ${contract.capacityHours} h/mês) para ${orgInstituto.slug}`);
+
+  const currentYear = new Date().getUTCFullYear();
+  const holidays = [
+    ...holidaysForYear(currentYear),
+    ...holidaysForYear(currentYear + 1),
+  ];
+
+  for (const holiday of holidays) {
+    await prisma.holiday.upsert({
+      where: { date_name: { date: holiday.date, name: holiday.name } },
+      update: { scope: holiday.scope, municipality: holiday.municipality ?? null },
+      create: {
+        date: holiday.date,
+        name: holiday.name,
+        scope: holiday.scope,
+        municipality: holiday.municipality ?? null,
+      },
+    });
+  }
+
+  console.log(`✅ ${holidays.length} feriados nacionais semeados (${currentYear}–${currentYear + 1}).`);
+  console.log('⚠️  Feriados municipais de Cataguases, Itamarati de Minas e Leopoldina/Piacatuba');
+  console.log('   precisam ser cadastrados na tabela Holiday antes da primeira apuração real.');
 
   console.log('🌱 Banco Populado com Sucesso!');
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Ticket, Users, Settings, LogOut, Bell, Menu, X, Monitor, QrCode } from "lucide-react";
+import { LayoutDashboard, Ticket, Users, Settings, LogOut, Bell, Menu, X, Monitor, QrCode, BarChart3 } from "lucide-react";
 
 interface User {
   name?: string | null;
@@ -55,6 +55,10 @@ export function DashboardLayoutInner({ children, user, unreadCount }: DashboardL
           <Link href="/tickets" onClick={closeSidebar} className={`flex min-h-11 items-center gap-2 px-3 py-2 rounded transition ${pathname?.startsWith('/tickets') ? 'bg-blue-600' : 'hover:bg-slate-800'}`}>
             <Ticket size={20} />
             Chamados
+          </Link>
+          <Link href="/reports/consumption" onClick={closeSidebar} className={`flex min-h-11 items-center gap-2 px-3 py-2 rounded transition ${pathname?.startsWith('/reports') ? 'bg-blue-600' : 'hover:bg-slate-800'}`}>
+            <BarChart3 size={20} />
+            Relatório mensal
           </Link>
           <Link href="/notifications" onClick={closeSidebar} className={`flex min-h-11 items-center justify-between px-3 py-2 rounded transition ${pathname === '/notifications' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}>
             <div className="flex items-center gap-2">

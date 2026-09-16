@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "./submit-button";
+import { ClassificationFields } from "@/components/grid/ClassificationFields";
 
 export default async function NewTicketPage() {
   const session = await getCurrentUser();
@@ -49,9 +50,14 @@ export default async function NewTicketPage() {
             />
           </div>
 
+          {/* Grade de Chamados: eixo de natureza e, quando C1, de severidade */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5">
+            <ClassificationFields canClassify={session.role === "ADMINISTRADOR"} />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="min-w-0 space-y-1">
-              <label htmlFor="categoryId" className="block text-sm font-medium text-slate-700">Categoria <span className="text-red-500">*</span></label>
+              <label htmlFor="categoryId" className="block text-sm font-medium text-slate-700">Categoria técnica <span className="text-red-500">*</span></label>
               <select 
                 name="categoryId" 
                 id="categoryId" 
