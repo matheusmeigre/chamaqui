@@ -1,121 +1,96 @@
-import { getCurrentUser } from "@/lib/auth/session";
-import prisma from "@/lib/prisma";
-import { createTicket } from "@/app/actions/tickets";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
-import { SubmitButton } from "./submit-button";
-import { ClassificationFields } from "@/components/grid/ClassificationFields";
+import { CheckCircle2, ChevronRight, ClipboardList, Lightbulb, MessagesSquare, Search, Wrench } from "lucide-react";
+import prisma from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/session";
+import { createTicket } from "@/app/actions/tickets";
+import { Card, CardBody, CardHeader } from "@/components/ui";
+import { NewTicketForm } from "./new-ticket-form";
+
+const JOURNEY = [
+  { icon: ClipboardList, title: "Registro", text: "O chamado entra na fila e o relógio de SLA começa." },
+  { icon: Search, title: "Triagem", text: "O suporte confirma a natureza e a severidade." },
+  { icon: Wrench, title: "Atendimento", text: "Execução, contorno e correção, com atualizações na conversa." },
+  { icon: CheckCircle2, title: "Validação", text: "Você confirma a solução e avalia o atendimento." },
+];
 
 export default async function NewTicketPage() {
   const session = await getCurrentUser();
   if (!session) redirect("/login");
 
   const allCategories = await prisma.category.findMany({
-    orderBy: { name: 'asc' }
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, description: true },
   });
   // Deduplicar por nome (defensivo caso existam registros duplicados no banco)
   const seen = new Set<string>();
-  const categories = allCategories.filter(c => {
-    if (seen.has(c.name)) return false;
-    seen.add(c.name);
+  const categories = allCategories.filter((category) => {
+    if (seen.has(category.name)) return false;
+    seen.add(category.name);
     return true;
   });
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Link aria-label="Voltar aos chamados" href="/tickets" className="grid min-h-11 min-w-11 shrink-0 place-items-center hover:bg-slate-200 rounded-full transition text-slate-500">
-          <ArrowLeft size={20} />
+    <div className="mx-auto max-w-6xl space-y-5">
+      <nav aria-label="Trilha" className="flex items-center gap-1 text-sm text-ink-3">
+        <Link href="/tickets" className="rounded-md px-1 hover:text-ink">
+          Chamados
         </Link>
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Abrir Novo Chamado</h2>
-      </div>
+        <ChevronRight size={14} />
+        <span className="font-medium text-ink-2">Novo</span>
+      </nav>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-8">
-        <form action={async (formData) => {
-          "use server"
-          await createTicket(formData);
-          redirect("/tickets");
-        }} className="space-y-6">
-          
-          <div className="space-y-1">
-            <label htmlFor="title" className="block text-sm font-medium text-slate-700">Título do Incidente / Solicitação <span className="text-red-500">*</span></label>
-            <input 
-              type="text" 
-              name="title" 
-              id="title" 
-              required
-              placeholder="Ex: Teclado não está funcionando"
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900 bg-white"
-            />
-          </div>
+      <header>
+        <h2 className="text-2xl font-bold tracking-tight text-ink sm:text-[1.75rem]">Abrir chamado</h2>
+        <p className="mt-1 max-w-2xl text-sm text-ink-2">
+          Descreva a demanda e classifique-a na grade. Em poucos passos o suporte recebe tudo o que
+          precisa para começar.
+        </p>
+      </header>
 
-          {/* Grade de Chamados: eixo de natureza e, quando C1, de severidade */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5">
-            <ClassificationFields canClassify={session.role === "ADMINISTRADOR"} />
-          </div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <NewTicketForm
+          categories={categories}
+          canClassify={session.role === "ADMINISTRADOR"}
+          action={async (formData) => {
+            "use server";
+            await createTicket(formData);
+            redirect("/tickets");
+          }}
+        />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="min-w-0 space-y-1">
-              <label htmlFor="categoryId" className="block text-sm font-medium text-slate-700">Categoria técnica <span className="text-red-500">*</span></label>
-              <select 
-                name="categoryId" 
-                id="categoryId" 
-                required
-                className="w-full min-w-0 border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white text-slate-900"
-              >
-                <option value="">Selecione a categoria...</option>
-                {categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+        <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+          <Card>
+            <CardHeader icon={<MessagesSquare size={16} />} title="Como seu chamado anda" />
+            <CardBody>
+              <ol className="relative space-y-4 before:absolute before:bottom-3 before:left-3.75 before:top-3 before:w-px before:bg-line">
+                {JOURNEY.map((step) => (
+                  <li key={step.title} className="relative flex gap-3">
+                    <span className="relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-3 text-ink-2 ring-4 ring-surface">
+                      <step.icon size={14} />
+                    </span>
+                    <div className="min-w-0 pt-1">
+                      <p className="text-sm font-semibold text-ink">{step.title}</p>
+                      <p className="text-xs leading-relaxed text-ink-3">{step.text}</p>
+                    </div>
+                  </li>
                 ))}
-              </select>
-            </div>
+              </ol>
+            </CardBody>
+          </Card>
 
-            <div className="min-w-0 space-y-1">
-              <label htmlFor="priority" className="block text-sm font-medium text-slate-700">Impacto/Prioridade <span className="text-red-500">*</span></label>
-              <select 
-                name="priority" 
-                id="priority" 
-                required
-                className="w-full min-w-0 border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white text-slate-900"
-              >
-                <option value="BAIXA">Baixa - Baixo impacto no trabalho</option>
-                <option value="MEDIA">Média - Dificulta mas não impede</option>
-                <option value="ALTA">Alta - Impede uma pessoa de trabalhar</option>
-                <option value="CRITICA">Crítica - Impede equipe inteira ou sistema fora</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label htmlFor="description" className="block text-sm font-medium text-slate-700">Descrição Detalhada <span className="text-red-500">*</span></label>
-            <textarea 
-              name="description" 
-              id="description" 
-              required
-              rows={5}
-              placeholder="Descreva o problema passo a passo ou a necessidade..."
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition resize-none text-slate-900 bg-white"
-            ></textarea>
-          </div>
-
-          <div className="space-y-1">
-            <label htmlFor="attachments" className="block text-sm font-medium text-slate-700">Anexos (Opcional)</label>
-            <input 
-              type="file" 
-              name="attachments" 
-              id="attachments" 
-              multiple 
-              accept="image/*"
-              className="block w-full min-w-0 border border-slate-300 rounded-lg px-2 sm:px-4 py-2 text-base text-slate-900 bg-white file:mr-2 sm:file:mr-4 file:py-2 file:px-2 sm:file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition"
-            />
-            <p className="text-xs text-slate-500 mt-1">Você pode anexar imagens como capturas de tela para auxiliar o suporte.</p>
-          </div>
-
-          <div className="pt-4 flex justify-end">
-            <SubmitButton />
-          </div>
-        </form>
+          <Card>
+            <CardHeader icon={<Lightbulb size={16} />} title="Dicas para agilizar" />
+            <CardBody>
+              <ul className="space-y-2 text-xs leading-relaxed text-ink-2">
+                <li>• Uma demanda por chamado — pedidos agrupados atrasam a entrega.</li>
+                <li>• Diga onde aconteceu: atrativo, tela, aparelho e versão do app.</li>
+                <li>• Anexe a captura da tela com a mensagem de erro.</li>
+                <li>• Em dúvida sobre a natureza, escolha a mais próxima: a triagem ajusta.</li>
+              </ul>
+            </CardBody>
+          </Card>
+        </aside>
       </div>
     </div>
   );

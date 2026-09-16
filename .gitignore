@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env.prod
 .env
+# Qualquer variante local (.env.local, .env.bak-*, .env.staging...) carrega
+# segredo e nunca deve ser versionada. .env.example é a única exceção.
+.env*
+!.env.example
 
 # vercel
 .vercel

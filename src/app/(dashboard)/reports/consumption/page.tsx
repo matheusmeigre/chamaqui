@@ -1,65 +1,54 @@
-import { getCurrentUser } from "@/lib/auth/session";
-import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle, CalendarClock, Gauge, RefreshCcw, ShieldCheck, Target } from "lucide-react";
+import {
+  AlertOctagon,
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  Clock3,
+  FileBarChart,
+  Flame,
+  Gauge,
+  Layers,
+  RefreshCcw,
+  ShieldCheck,
+  Target,
+  TicketCheck,
+} from "lucide-react";
+import prisma from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/session";
 import { FormattedDate } from "@/components/FormattedDate";
+import {
+  Badge,
+  Callout,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  FIELD_CLASS,
+  Meter,
+  TableShell,
+  Td,
+  Th,
+} from "@/components/ui";
+import { StatTile } from "@/components/ui/StatTile";
+import { BarList } from "@/components/charts/BarList";
+import { RadialGauge } from "@/components/charts/RadialGauge";
+import { STATUS } from "@/components/charts/primitives";
+import { OUTCOME_LABEL, QUOTA_STATE_LABEL, QUOTA_STATE_TONE } from "@/components/domain/labels";
+import { SEVERITY_DEFINITIONS } from "@/server/domain/ticket-grid";
 import { buildMonthlyReport, listCompetencies } from "@/server/services/monthly-report";
 import { requestAdvance } from "@/app/actions/ticket-grid";
 import { expireOverdueContestations } from "@/server/services/quota-alerts";
 import { competencyOf } from "@/server/services/ticket-classification";
-import type { QuotaState } from "@/server/services/quota-service";
-import type { TicketOutcome } from "@prisma/client";
+import { cn, formatCompetency, formatPercent, shortId } from "@/lib/ui";
+import { ReportFilters } from "./report-filters";
 
-const STATE_BAR: Record<QuotaState, string> = {
-  OK: "bg-green-500",
-  ALERTA: "bg-amber-500",
-  ESTOURADO: "bg-red-500",
-  SEM_TETO: "bg-blue-500",
-  FORA_DO_CONTRATO: "bg-slate-400",
-};
-
-const STATE_LABEL: Record<QuotaState, string> = {
-  OK: "Dentro do teto",
-  ALERTA: "80% do teto",
-  ESTOURADO: "Teto atingido",
-  SEM_TETO: "Sem teto (garantia)",
-  FORA_DO_CONTRATO: "Fora do contrato",
-};
-
-const OUTCOME_LABEL: Record<TicketOutcome, string> = {
-  RESOLVIDO: "Resolvido",
-  IMPROCEDENTE_NAO_REPRODUZ: "Não reproduz",
-  IMPROCEDENTE_ERRO_USO: "Erro de uso",
-  IMPROCEDENTE_TERCEIRO: "Indisponibilidade de terceiro",
-  DUPLICADO: "Duplicado",
-  RECLASSIFICADO: "Reclassificado",
-};
-
-function Card({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4">
-      <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-800 border-b pb-2">
-        {icon}
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
-
-function percent(value: number | null): string {
-  if (value === null) return "—";
-  return `${Math.round(value * 100)}%`;
-}
+const MILESTONES = [
+  { key: "firstResponse", label: "1ª resposta" },
+  { key: "workaround", label: "Contorno" },
+  { key: "definitiveFix", label: "Correção definitiva" },
+] as const;
 
 export default async function ConsumptionReportPage({
   searchParams,
@@ -84,359 +73,408 @@ export default async function ConsumptionReportPage({
     : [];
 
   const organizationId = isAdmin
-    ? (params.org ?? organizations[0]?.id ?? null)
+    ? (organizations.find((org) => org.id === params.org)?.id ?? organizations[0]?.id ?? null)
     : session.organizationId;
 
   if (!organizationId) {
     return (
-      <div className="max-w-3xl mx-auto">
-        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">
-          Seu usuário não está vinculado a uma organização, então não há consumo a apurar.
-        </div>
+      <div className="mx-auto max-w-3xl">
+        <Card>
+          <EmptyState
+            icon={<FileBarChart size={20} />}
+            title="Sem organização vinculada"
+            description="Seu usuário não está vinculado a uma organização, então não há consumo a apurar."
+          />
+        </Card>
       </div>
     );
   }
 
   const competencies = await listCompetencies(organizationId);
-  const competency = params.competency ?? competencies[0] ?? competencyOf(new Date());
+  const competency =
+    params.competency && /^\d{4}-\d{2}$/.test(params.competency)
+      ? params.competency
+      : (competencies[0] ?? competencyOf(new Date()));
   const report = await buildMonthlyReport(organizationId, competency);
 
-  const tier = report.quota.tier;
+  const { quota } = report;
+  const tier = quota.tier;
+  const organizationName = isAdmin ? organizations.find((org) => org.id === organizationId)?.name : null;
+  const capacityRatio = quota.capacityHours ? quota.totalConsumedHours / quota.capacityHours : null;
+  const c1Ratio = quota.c1ReserveHours ? quota.c1ConsumedHours / quota.c1ReserveHours : null;
+  const p1Exceeded = report.p1.ratio !== null && report.p1.ratio > 1;
+
+  // Taxa global de SLA (com desconto da loja), para o indicador do topo.
+  const slaTotals = report.sla.reduce(
+    (acc, line) => {
+      for (const milestone of MILESTONES) {
+        acc.applicable += line.milestones[milestone.key].applicable;
+        acc.met += line.milestones[milestone.key].metAdjusted;
+      }
+      return acc;
+    },
+    { applicable: 0, met: 0 }
+  );
+  const slaRatio = slaTotals.applicable === 0 ? null : slaTotals.met / slaTotals.applicable;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mx-auto max-w-7xl space-y-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
-          <h2 className="text-2xl font-bold text-gray-800">Relatório mensal</h2>
-          <p className="text-sm text-slate-500">
-            Competência {competency}
-            {tier ? ` · faixa ${tier.label} · ${tier.capacityHours} h/mês` : " · sem contrato ativo"}
+          <p className="text-sm font-medium text-ink-3">Relatório contratual</p>
+          <h2 className="mt-0.5 text-2xl font-bold tracking-tight text-ink sm:text-[1.75rem]">
+            {formatCompetency(competency)}
+          </h2>
+          <p className="mt-1 text-sm text-ink-2">
+            {organizationName && <span className="font-medium text-ink">{organizationName} · </span>}
+            {tier ? `Faixa ${tier.label} · ${tier.capacityHours} h/mês` : "Sem contrato ativo"}
           </p>
         </div>
 
-        <form className="flex flex-wrap gap-2" action="/reports/consumption" method="get">
-          {isAdmin && (
-            <select
-              name="org"
-              defaultValue={organizationId}
-              className="min-h-11 min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-            >
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>{org.name}</option>
-              ))}
-            </select>
-          )}
-          <select
-            name="competency"
-            defaultValue={competency}
-            className="min-h-11 min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-          >
-            {competencies.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="min-h-11 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-          >
-            Aplicar
-          </button>
-        </form>
+        <ReportFilters
+          organizations={isAdmin ? organizations.map(({ id, name }) => ({ id, name })) : null}
+          organizationId={organizationId}
+          competencies={competencies}
+          competency={competency}
+        />
       </div>
 
       {!tier && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          Esta organização não tem contrato de sustentação ativo. O consumo é exibido, mas não há
-          tetos a apurar.
-        </div>
+        <Callout tone="warning" icon={<AlertTriangle size={16} />} title="Organização sem contrato ativo">
+          O consumo é exibido, mas não há tetos a apurar.
+        </Callout>
       )}
 
-      {/* --- Consumo por categoria --------------------------------------- */}
-      <Card title="Consumo por categoria" icon={<Target size={20} />}>
-        <div className="space-y-4">
-          {report.quota.lines.map((line) => (
-            <div key={line.categoryCode} className="space-y-1.5">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="text-sm font-medium text-slate-800">
-                  {line.categoryCode} — {line.definition.label}
-                </span>
-                <span className="text-sm text-slate-600">
-                  {line.consumedUnits}
-                  {line.limit !== null ? ` de ${line.limit}` : ""}{" "}
-                  {line.definition.unitLabel.many}
-                  {line.limit !== null && ` · ${percent(line.ratio)}`}
-                </span>
-              </div>
+      {/* Indicadores */}
+      <section className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4 sm:gap-4">
+        <StatTile
+          label="Chamados na competência"
+          value={String(report.totalTickets)}
+          icon={<TicketCheck size={16} />}
+          caption={report.improperTotal > 0 ? `${report.improperTotal} improcedentes` : undefined}
+          tone="brand"
+        />
+        <StatTile
+          label="Horas consumidas"
+          value={`${quota.totalConsumedHours.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} h`}
+          icon={<Clock3 size={16} />}
+          caption={quota.capacityHours ? `de ${quota.capacityHours} h · ${formatPercent(capacityRatio)}` : undefined}
+          tone={capacityRatio !== null && capacityRatio >= 1 ? "critical" : capacityRatio !== null && capacityRatio >= 0.8 ? "warning" : "neutral"}
+        />
+        <StatTile
+          label="SLA cumprido"
+          value={formatPercent(slaRatio)}
+          icon={<ShieldCheck size={16} />}
+          caption={slaTotals.applicable > 0 ? `${slaTotals.met} de ${slaTotals.applicable} marcos` : "Sem marcos de C1"}
+          tone={slaRatio === null ? "neutral" : slaRatio >= 0.95 ? "good" : slaRatio >= 0.8 ? "warning" : "critical"}
+        />
+        <StatTile
+          label="Incidentes P1"
+          value={String(report.p1.count)}
+          icon={<Flame size={16} />}
+          caption={`${report.p1.hours.toLocaleString("pt-BR")} h em P1`}
+          tone={p1Exceeded ? "critical" : report.p1.count > 0 ? "warning" : "neutral"}
+        />
+      </section>
 
-              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className={`h-full rounded-full ${STATE_BAR[line.state]}`}
-                  style={{
-                    width:
-                      line.limit === null
-                        ? "100%"
-                        : `${Math.min(100, Math.round((line.ratio ?? 0) * 100))}%`,
-                  }}
-                />
-              </div>
+      {/* Consumo × teto */}
+      <div className="grid gap-4 xl:grid-cols-12">
+        <Card className="xl:col-span-8">
+          <CardHeader
+            icon={<Target size={16} />}
+            title="Consumo × teto por categoria"
+            subtitle="Unidades consumidas na competência, com ajustes do mês"
+          />
+          <ul className="divide-y divide-line">
+            {quota.lines.map((line) => {
+              const tone =
+                line.state === "ESTOURADO"
+                  ? "critical"
+                  : line.state === "ALERTA"
+                    ? "warning"
+                    : line.state === "OK"
+                      ? "brand"
+                      : "neutral";
+              return (
+                <li key={line.categoryCode} className="grid gap-2 px-4 py-3.5 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] sm:items-center sm:gap-5 sm:px-5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-ink">
+                      <span className="font-semibold">{line.categoryCode}</span>{" "}
+                      <span className="text-ink-2">{line.definition.label}</span>
+                    </p>
+                    <div className="mt-1">
+                      <Badge tone={QUOTA_STATE_TONE[line.state]} dot>
+                        {QUOTA_STATE_LABEL[line.state]}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs text-ink-3">
+                      <span>
+                        <span className="text-sm font-semibold tabular-nums text-ink">{line.consumedUnits}</span>
+                        {line.limit !== null ? ` de ${line.limit} ` : " "}
+                        {line.definition.unitLabel.many}
+                        {line.limit !== null && ` · ${formatPercent(line.ratio)}`}
+                      </span>
+                      <span>
+                        {line.consumedHours > 0 && `${line.consumedHours.toLocaleString("pt-BR")} h`}
+                        {line.adjustments !== 0 &&
+                          ` · ajuste ${line.adjustments > 0 ? "+" : ""}${line.adjustments}`}
+                      </span>
+                    </div>
+                    {line.limit !== null ? (
+                      <Meter ratio={line.ratio} tone={tone} ariaLabel={`Teto de ${line.categoryCode}`} />
+                    ) : (
+                      <p className="text-[11px] text-ink-3">
+                        {line.definition.inContract
+                          ? "Sem teto: coberto pela garantia"
+                          : "Fora do contrato: vai a orçamento"}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                <span>{STATE_LABEL[line.state]}</span>
-                <span>
-                  {line.consumedHours > 0 && `${line.consumedHours.toFixed(2)} h`}
-                  {line.adjustments !== 0 &&
-                    ` · ajuste de ${line.adjustments > 0 ? "+" : ""}${line.adjustments} no mês`}
-                </span>
-              </div>
+        <Card className="xl:col-span-4">
+          <CardHeader
+            icon={<Gauge size={16} />}
+            title="Reservas da faixa"
+            subtitle="C1 não tem teto, mas tem reserva de capacidade"
+          />
+          <CardBody className="space-y-5">
+            <div className="flex flex-wrap items-start justify-center gap-6">
+              <RadialGauge
+                ratio={c1Ratio}
+                label="Reserva de C1"
+                caption={quota.c1ReserveHours ? `${quota.c1ConsumedHours} de ${quota.c1ReserveHours} h` : "sem contrato"}
+                color={c1Ratio !== null && c1Ratio > 1 ? STATUS.critical : c1Ratio !== null && c1Ratio >= 0.8 ? STATUS.warning : "var(--brand)"}
+                size={120}
+              />
+              <RadialGauge
+                ratio={report.p1.ratio}
+                label="Reserva de P1"
+                caption={report.p1.reserveHours ? `${report.p1.hours} de ${report.p1.reserveHours} h` : "sem contrato"}
+                color={p1Exceeded ? STATUS.critical : report.p1.ratio !== null && report.p1.ratio >= 0.8 ? STATUS.warning : "var(--brand)"}
+                size={120}
+              />
             </div>
-          ))}
-        </div>
 
-        <dl className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-sm sm:grid-cols-4">
-          <div>
-            <dt className="text-xs text-slate-400">Chamados na competência</dt>
-            <dd className="font-semibold text-slate-800">{report.totalTickets}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-slate-400">Horas consumidas</dt>
-            <dd className="font-semibold text-slate-800">
-              {report.quota.totalConsumedHours.toFixed(2)} h
-              {report.quota.capacityHours ? ` / ${report.quota.capacityHours} h` : ""}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-slate-400">Reserva de C1</dt>
-            <dd className="font-semibold text-slate-800">
-              {report.quota.c1ConsumedHours.toFixed(2)} h
-              {report.quota.c1ReserveHours ? ` / ${report.quota.c1ReserveHours} h` : ""}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-slate-400">Improcedentes</dt>
-            <dd className="font-semibold text-slate-800">{report.improperTotal}</dd>
-          </div>
-        </dl>
-      </Card>
+            {p1Exceeded && (
+              <Callout tone="critical" icon={<AlertOctagon size={15} />} title="Reserva de P1 ultrapassada">
+                Acima do teto de mês de crise, a causa raiz é apurada em conjunto antes de qualquer
+                repactuação.
+              </Callout>
+            )}
+          </CardBody>
+        </Card>
+      </div>
 
-      {/* --- Antecipação de teto ------------------------------------------ */}
+      {/* Antecipação de teto */}
       {isAdmin && tier && (
-        <Card title="Antecipar teto do mês seguinte" icon={<CalendarClock size={20} />}>
-          <p className="text-sm text-slate-600">
-            Saldo não consumido não acumula. É permitida a antecipação de até 20% do teto do mês
-            seguinte, uma vez por trimestre — banco de horas destrói a previsibilidade que
-            justifica a mensalidade.
-          </p>
-          <form action={requestAdvance} className="grid gap-3 sm:grid-cols-4">
-            <input type="hidden" name="organizationId" value={organizationId} />
-            <input type="hidden" name="competency" value={competency} />
-            <select
-              name="categoryCode"
-              required
-              defaultValue=""
-              className="min-h-11 min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-            >
-              <option value="">Categoria...</option>
-              {report.quota.lines
-                .filter((line) => line.definition.hasQuota)
-                .map((line) => (
-                  <option key={line.categoryCode} value={line.categoryCode}>
-                    {line.categoryCode} — {line.definition.label}
-                  </option>
-                ))}
-            </select>
-            <input
-              type="number"
-              name="amount"
-              min={1}
-              step={1}
-              required
-              placeholder="Quantidade"
-              className="min-h-11 min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-            />
-            <input
-              type="text"
-              name="reason"
-              placeholder="Justificativa (opcional)"
-              className="min-h-11 min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-            />
-            <button
-              type="submit"
-              className="min-h-11 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-            >
-              Antecipar
-            </button>
-          </form>
+        <Card className="no-print">
+          <CardHeader
+            icon={<CalendarClock size={16} />}
+            title="Antecipar teto do mês seguinte"
+            subtitle="Até 20% do teto seguinte, uma vez por trimestre. Saldo não consumido não acumula."
+          />
+          <CardBody>
+            <form action={requestAdvance} className="grid gap-2 md:grid-cols-[1.2fr_0.6fr_1.4fr_auto]">
+              <input type="hidden" name="organizationId" value={organizationId} />
+              <input type="hidden" name="competency" value={competency} />
+              <select name="categoryCode" required defaultValue="" aria-label="Categoria" className={FIELD_CLASS}>
+                <option value="" disabled>
+                  Categoria…
+                </option>
+                {quota.lines
+                  .filter((line) => line.definition.hasQuota)
+                  .map((line) => (
+                    <option key={line.categoryCode} value={line.categoryCode}>
+                      {line.categoryCode} — {line.definition.label}
+                    </option>
+                  ))}
+              </select>
+              <input
+                type="number"
+                name="amount"
+                min={1}
+                step={1}
+                required
+                placeholder="Qtd."
+                aria-label="Quantidade"
+                className={FIELD_CLASS}
+              />
+              <input
+                type="text"
+                name="reason"
+                placeholder="Justificativa (opcional)"
+                aria-label="Justificativa"
+                className={FIELD_CLASS}
+              />
+              <button
+                type="submit"
+                className="min-h-11 rounded-xl bg-brand px-5 text-sm font-medium text-on-brand shadow-card transition hover:bg-brand-strong"
+              >
+                Antecipar
+              </button>
+            </form>
+          </CardBody>
         </Card>
       )}
 
-      {/* --- Taxa de P1 --------------------------------------------------- */}
-      <Card title="Incidentes críticos (P1)" icon={<Gauge size={20} />}>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs text-slate-500">P1 no mês</p>
-            <p className="text-2xl font-bold text-slate-800">{report.p1.count}</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs text-slate-500">Horas em P1</p>
-            <p className="text-2xl font-bold text-slate-800">{report.p1.hours.toFixed(1)} h</p>
-          </div>
-          <div
-            className={`rounded-lg border p-3 ${
-              report.p1.ratio !== null && report.p1.ratio > 1
-                ? "border-red-200 bg-red-50"
-                : "border-slate-200 bg-slate-50"
-            }`}
-          >
-            <p className="text-xs text-slate-500">Reserva de P1 consumida</p>
-            <p className="text-2xl font-bold text-slate-800">
-              {percent(report.p1.ratio)}
-              {report.p1.reserveHours !== null && (
-                <span className="ml-1 text-sm font-normal text-slate-500">
-                  de {report.p1.reserveHours} h
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-        {report.p1.ratio !== null && report.p1.ratio > 1 && (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-            A reserva de P1 da faixa foi ultrapassada. Acima do teto de mês de crise, a causa raiz
-            é apurada em conjunto antes de qualquer repactuação.
-          </p>
-        )}
-      </Card>
-
-      {/* --- SLA por severidade ------------------------------------------- */}
-      <Card title="SLA cumprido por severidade" icon={<ShieldCheck size={20} />}>
+      {/* SLA por severidade */}
+      <Card>
+        <CardHeader
+          icon={<ShieldCheck size={16} />}
+          title="SLA cumprido por severidade"
+          subtitle="Correção definitiva com a janela de revisão da Google Play descontada"
+        />
         {report.sla.length === 0 ? (
-          <p className="text-sm text-slate-500">Nenhum chamado com severidade na competência.</p>
+          <EmptyState
+            icon={<ShieldCheck size={20} />}
+            title="Nenhum chamado com severidade"
+            description="Não houve incidentes de C1 nesta competência."
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-[640px] w-full text-left text-sm text-slate-600">
-              <thead className="border-b border-slate-200 bg-slate-50 font-medium text-slate-700">
+          <>
+            <TableShell minWidth={720}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-3">Severidade</th>
-                  <th className="px-4 py-3">Chamados</th>
-                  <th className="px-4 py-3">1ª resposta</th>
-                  <th className="px-4 py-3">Contorno</th>
-                  <th className="px-4 py-3">Correção definitiva</th>
+                  <Th>Severidade</Th>
+                  <Th align="right">Chamados</Th>
+                  {MILESTONES.map((milestone) => (
+                    <Th key={milestone.key}>{milestone.label}</Th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {report.sla.map((line) => (
                   <tr key={line.severity}>
-                    <td className="px-4 py-3 font-medium text-slate-900">{line.severity}</td>
-                    <td className="px-4 py-3">{line.total}</td>
-                    {(["firstResponse", "workaround", "definitiveFix"] as const).map((key) => {
-                      const bucket = line.milestones[key];
+                    <Td>
+                      <span className="font-semibold text-ink">{line.severity}</span>{" "}
+                      <span className="text-xs text-ink-3">{SEVERITY_DEFINITIONS[line.severity].label}</span>
+                    </Td>
+                    <Td align="right" numeric className="text-ink">
+                      {line.total}
+                    </Td>
+                    {MILESTONES.map((milestone) => {
+                      const bucket = line.milestones[milestone.key];
+                      if (bucket.applicable === 0) {
+                        return (
+                          <Td key={milestone.key} className="text-ink-3">
+                            —
+                          </Td>
+                        );
+                      }
+                      const ratio = bucket.metAdjusted / bucket.applicable;
+                      const tone = ratio >= 0.95 ? "good" : ratio >= 0.8 ? "warning" : "critical";
+                      const Icon = tone === "good" ? CheckCircle2 : tone === "warning" ? AlertTriangle : AlertOctagon;
                       return (
-                        <td key={key} className="px-4 py-3">
-                          {bucket.applicable === 0 ? (
-                            "—"
-                          ) : (
-                            <span>
-                              {bucket.metAdjusted}/{bucket.applicable}
-                              {key === "definitiveFix" &&
-                                bucket.metRaw !== bucket.metAdjusted && (
-                                  <span className="ml-1 text-xs text-slate-400">
-                                    ({bucket.metRaw}/{bucket.applicable} sem desconto)
-                                  </span>
+                        <Td key={milestone.key}>
+                          <div className="min-w-36 space-y-1">
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1 font-semibold",
+                                  tone === "good" ? "text-good-ink" : tone === "warning" ? "text-warning-ink" : "text-critical-ink"
                                 )}
-                            </span>
-                          )}
-                        </td>
+                              >
+                                <Icon size={12} />
+                                {formatPercent(ratio)}
+                              </span>
+                              <span className="tabular-nums text-ink-3">
+                                {bucket.metAdjusted}/{bucket.applicable}
+                              </span>
+                            </div>
+                            <Meter ratio={ratio} tone={tone} ariaLabel={`${milestone.label} ${line.severity}`} />
+                            {milestone.key === "definitiveFix" && bucket.metRaw !== bucket.metAdjusted && (
+                              <p className="text-[11px] text-ink-3">
+                                {bucket.metRaw}/{bucket.applicable} sem desconto da loja
+                              </p>
+                            )}
+                          </div>
+                        </Td>
                       );
                     })}
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </TableShell>
+          </>
         )}
-        <p className="text-xs text-slate-500">
-          A coluna de correção definitiva considera a janela de revisão da Google Play descontada.
-          O número sem desconto aparece ao lado quando difere.
-        </p>
       </Card>
 
-      {/* --- Improcedentes e reincidências -------------------------------- */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Improcedentes" icon={<AlertTriangle size={20} />}>
-          {report.improper.length === 0 ? (
-            <p className="text-sm text-slate-500">Nenhum chamado improcedente na competência.</p>
-          ) : (
-            <ul className="space-y-2">
-              {report.improper.map((line) => (
-                <li
-                  key={line.outcome}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                >
-                  <span className="text-slate-700">{OUTCOME_LABEL[line.outcome]}</span>
-                  <span className="font-semibold text-slate-900">{line.count}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="text-xs text-slate-500">
-            Chamado improcedente não consome teto. O diagnóstico entra no relatório.
-          </p>
+      {/* Improcedentes, reincidências e causa raiz */}
+      <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+        <Card>
+          <CardHeader
+            icon={<AlertTriangle size={16} />}
+            title="Improcedentes"
+            subtitle="Não consomem teto; o diagnóstico entra no relatório"
+          />
+          <CardBody>
+            <BarList
+              data={report.improper.map((line) => ({
+                key: line.outcome,
+                label: OUTCOME_LABEL[line.outcome],
+                value: line.count,
+              }))}
+              emptyLabel="Nenhum chamado improcedente na competência."
+            />
+          </CardBody>
         </Card>
 
-        <Card title="Reincidências" icon={<RefreshCcw size={20} />}>
+        <Card>
+          <CardHeader
+            icon={<Layers size={16} />}
+            title="Ranking de causa raiz"
+            subtitle="Categoria técnica · incidentes P1 primeiro"
+          />
+          <CardBody>
+            <BarList
+              data={report.rootCauses.map((line) => ({
+                key: line.category,
+                label: line.category,
+                value: line.total,
+                hint: line.p1 > 0 ? `${line.p1} ${line.p1 === 1 ? "incidente P1" : "incidentes P1"}` : undefined,
+              }))}
+              emptyLabel="Sem dados na competência."
+            />
+          </CardBody>
+        </Card>
+
+        <Card className="lg:col-span-2 2xl:col-span-1">
+          <CardHeader
+            icon={<RefreshCcw size={16} />}
+            title="Reincidências"
+            subtitle={`${report.recurrences.length} ${report.recurrences.length === 1 ? "chamado reaberto" : "chamados reabertos"}`}
+          />
           {report.recurrences.length === 0 ? (
-            <p className="text-sm text-slate-500">Nenhuma reincidência na competência.</p>
+            <EmptyState
+              icon={<CheckCircle2 size={20} />}
+              title="Nenhuma reincidência"
+              description="Nenhum defeito voltou nesta competência."
+            />
           ) : (
-            <ul className="space-y-2">
+            <ul className="divide-y divide-line">
               {report.recurrences.map((line) => (
-                <li
-                  key={line.id}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                >
-                  <Link
-                    href={`/tickets/${line.id}`}
-                    className="font-medium text-blue-600 hover:text-blue-800"
-                  >
-                    {line.title}
+                <li key={line.id}>
+                  <Link href={`/tickets/${line.id}`} className="block px-4 py-3 transition hover:bg-surface-2 sm:px-5">
+                    <p className="truncate text-sm font-medium text-ink">{line.title}</p>
+                    <p className="mt-0.5 text-xs text-ink-3">
+                      Reincidência de {shortId(line.parentTicketId)} ·{" "}
+                      <FormattedDate date={line.openedAt} pattern="dd/MM/yyyy" /> ·{" "}
+                      {line.consumesQuota ? "consome teto" : "não consome teto"}
+                    </p>
                   </Link>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Reincidência de #{line.parentTicketId.split("-")[0].toUpperCase()} ·{" "}
-                    <FormattedDate date={line.openedAt} pattern="dd/MM/yyyy" /> ·{" "}
-                    {line.consumesQuota ? "consome teto" : "não consome teto"}
-                  </p>
                 </li>
               ))}
             </ul>
           )}
         </Card>
       </div>
-
-      {/* --- Causa raiz --------------------------------------------------- */}
-      <Card title="Ranking de causa raiz" icon={<Target size={20} />}>
-        {report.rootCauses.length === 0 ? (
-          <p className="text-sm text-slate-500">Sem dados na competência.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-[420px] w-full text-left text-sm text-slate-600">
-              <thead className="border-b border-slate-200 bg-slate-50 font-medium text-slate-700">
-                <tr>
-                  <th className="px-4 py-3">Categoria técnica</th>
-                  <th className="px-4 py-3">Chamados</th>
-                  <th className="px-4 py-3">Dos quais P1</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {report.rootCauses.map((line) => (
-                  <tr key={line.category}>
-                    <td className="px-4 py-3 text-slate-900">{line.category}</td>
-                    <td className="px-4 py-3">{line.total}</td>
-                    <td className="px-4 py-3 font-medium">{line.p1}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
     </div>
   );
 }

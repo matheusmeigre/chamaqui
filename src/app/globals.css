@@ -1,22 +1,257 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Tema
+   O script de tema (ThemeScript) resolve "system" antes da pintura e grava
+   data-theme="light" | "dark" no <html>. O CSS abaixo só precisa olhar para o
+   atributo — não há media query concorrente para desempatar.
+--------------------------------------------------------------------------- */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ---------------------------------------------------------------------------
+   Tokens semânticos
+   Utilitários (bg-surface, text-ink-2, border-line...) apontam para variáveis
+   que trocam com o tema. Nenhuma cor é definida apenas dentro do bloco escuro.
+--------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a; /* text-slate-900 */
+  color-scheme: light;
+
+  /* Superfícies */
+  --canvas: #f3f5f9;
+  --surface: #ffffff;
+  --surface-2: #f7f9fc;
+  --surface-3: #eef2f8;
+  --overlay: rgba(9, 15, 28, 0.55);
+
+  /* Traços */
+  --line: #e3e8f0;
+  --line-strong: #cdd5e3;
+
+  /* Tinta */
+  --ink: #0d1424;
+  --ink-2: #4a586f;
+  --ink-3: #78869c;
+
+  /* Marca */
+  --brand: #2a78d6;
+  --brand-strong: #256abf;
+  --brand-ink: #1c5cab;
+  --brand-soft: #e9f1fd;
+  --on-brand: #ffffff;
+
+  /* Estado — o hex é fixo; o par ink/soft é que se adapta ao fundo */
+  --good: #0ca30c;
+  --good-ink: #006300;
+  --good-soft: #e6f6e6;
+
+  --warning: #fab219;
+  --warning-ink: #8a5a00;
+  --warning-soft: #fdf3dd;
+
+  --serious: #ec835a;
+  --serious-ink: #9c4415;
+  --serious-soft: #fdeee6;
+
+  --critical: #d03b3b;
+  --critical-ink: #a51f1f;
+  --critical-soft: #fbeaea;
+
+  --neutral-ink: #4a586f;
+  --neutral-soft: #eef2f8;
+
+  /* Cromo de gráfico */
+  --chart-surface: #ffffff;
+  --chart-grid: #e8ecf3;
+  --chart-axis: #cbd3e0;
+  --chart-muted: #8b97ab;
+
+  /* Séries categóricas — ordem fixa, nunca ciclada (ver dataviz/palette) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+
+  /* Rampa sequencial de um tom (magnitude contínua: heatmap) */
+  --seq-0: #edf4fd;
+  --seq-1: #cde2fb;
+  --seq-2: #9ec5f4;
+  --seq-3: #6da7ec;
+  --seq-4: #3987e5;
+  --seq-5: #256abf;
+  --seq-6: #104281;
+
+  /* Tinta sobre cada passo da rampa: escolhida pela luminância do fundo */
+  --seq-on-0: #0d1424;
+  --seq-on-1: #0d1424;
+  --seq-on-2: #0d1424;
+  --seq-on-3: #0d1424;
+  --seq-on-4: #ffffff;
+  --seq-on-5: #ffffff;
+  --seq-on-6: #ffffff;
+
+  /* Rampa ordinal do ciclo de vida — 5 passos, ΔL validado */
+  --ord-1: #86b6ef;
+  --ord-2: #5598e7;
+  --ord-3: #2a78d6;
+  --ord-4: #1c5cab;
+  --ord-5: #0d366b;
+
+  /* Elevação */
+  --shadow-sm: 0 1px 2px 0 rgba(13, 20, 36, 0.05);
+  --shadow-md: 0 1px 3px 0 rgba(13, 20, 36, 0.07), 0 6px 16px -6px rgba(13, 20, 36, 0.09);
+  --shadow-lg: 0 2px 6px -1px rgba(13, 20, 36, 0.08), 0 18px 40px -12px rgba(13, 20, 36, 0.16);
+  --ring-brand: 0 0 0 3px rgba(42, 120, 214, 0.28);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: #080c15;
+  --surface: #121a2b;
+  --surface-2: #182135;
+  --surface-3: #1f2a42;
+  --overlay: rgba(2, 5, 12, 0.7);
+
+  --line: #26314b;
+  --line-strong: #37445f;
+
+  --ink: #eef2f8;
+  --ink-2: #a9b5c9;
+  --ink-3: #7d8aa1;
+
+  --brand: #3987e5;
+  --brand-strong: #5598e7;
+  --brand-ink: #86b6ef;
+  --brand-soft: #172742;
+  --on-brand: #ffffff;
+
+  --good: #0ca30c;
+  --good-ink: #4cc44c;
+  --good-soft: #102a14;
+
+  --warning: #fab219;
+  --warning-ink: #f0bb4b;
+  --warning-soft: #2e2413;
+
+  --serious: #ec835a;
+  --serious-ink: #f09a78;
+  --serious-soft: #2f1d15;
+
+  --critical: #d03b3b;
+  --critical-ink: #ef7d7d;
+  --critical-soft: #2e1417;
+
+  --neutral-ink: #a9b5c9;
+  --neutral-soft: #1f2a42;
+
+  --chart-surface: #121a2b;
+  --chart-grid: #222c44;
+  --chart-axis: #313d59;
+  --chart-muted: #8996ad;
+
+  /* Mesmos oito tons, reescalonados para a superfície escura */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+
+  --seq-0: #141f35;
+  --seq-1: #184f95;
+  --seq-2: #256abf;
+  --seq-3: #3987e5;
+  --seq-4: #6da7ec;
+  --seq-5: #9ec5f4;
+  --seq-6: #cde2fb;
+
+  /* No escuro a rampa inverte: os passos altos são claros e pedem tinta escura */
+  --seq-on-0: #eef2f8;
+  --seq-on-1: #ffffff;
+  --seq-on-2: #ffffff;
+  --seq-on-3: #ffffff;
+  --seq-on-4: #0d1424;
+  --seq-on-5: #0d1424;
+  --seq-on-6: #0d1424;
+
+  --ord-1: #cde2fb;
+  --ord-2: #9ec5f4;
+  --ord-3: #3987e5;
+  --ord-4: #256abf;
+  --ord-5: #184f95;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.45), 0 6px 16px -6px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 2px 6px -1px rgba(0, 0, 0, 0.5), 0 18px 40px -12px rgba(0, 0, 0, 0.7);
+  --ring-brand: 0 0 0 3px rgba(57, 135, 229, 0.35);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+  --color-on-brand: var(--on-brand);
+
+  --color-good: var(--good);
+  --color-good-ink: var(--good-ink);
+  --color-good-soft: var(--good-soft);
+  --color-warning: var(--warning);
+  --color-warning-ink: var(--warning-ink);
+  --color-warning-soft: var(--warning-soft);
+  --color-serious: var(--serious);
+  --color-serious-ink: var(--serious-ink);
+  --color-serious-soft: var(--serious-soft);
+  --color-critical: var(--critical);
+  --color-critical-ink: var(--critical-ink);
+  --color-critical-soft: var(--critical-soft);
+  --color-neutral-ink: var(--neutral-ink);
+  --color-neutral-soft: var(--neutral-soft);
+
+  --shadow-card: var(--shadow-sm);
+  --shadow-raised: var(--shadow-md);
+  --shadow-float: var(--shadow-lg);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* Forçando o tema claro como padrão para compatibilidade com os fundos bg-white já desenvolvidos */
+/* ---------------------------------------------------------------------------
+   Base
+--------------------------------------------------------------------------- */
+
+* {
+  border-color: var(--line);
+}
+
+html {
+  background: var(--canvas);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   overflow-wrap: anywhere;
   -webkit-tap-highlight-color: transparent;
 }
@@ -29,8 +264,189 @@ textarea {
   touch-action: manipulation;
 }
 
-input,
-select,
-textarea {
-  font-size: 16px;
+/* 16px evita o zoom automático do iOS ao focar um campo. Só em telas de toque:
+   fora de camada, esta regra vence as classes do Tailwind (que moram em
+   @layer utilities) e deixava todo campo em 16px também no desktop. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+::placeholder {
+  color: var(--ink-3);
+}
+
+/* O seletor nativo herda o esquema de cor, mas as opções não em todo navegador. */
+option {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------------------
+   Rolagem
+--------------------------------------------------------------------------- */
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: var(--line-strong);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------------------------------------------------------------------------
+   Movimento
+--------------------------------------------------------------------------- */
+
+@keyframes cq-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cq-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cq-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes cq-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--critical) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.animate-fade-up {
+  animation: cq-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade {
+  animation: cq-fade 0.3s ease-out both;
+}
+
+.animate-pulse-ring {
+  animation: cq-pulse-ring 2s ease-out infinite;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--surface) 60%, transparent),
+    transparent
+  );
+  animation: cq-shimmer 1.6s infinite;
+}
+
+/* Traço de gráfico que se desenha ao entrar. O elemento declara pathLength="1",
+   então o tracejado é medido em frações do próprio traço — um comprimento em
+   pixels estimado cortava curvas mais longas que a estimativa. */
+@keyframes cq-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.chart-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: cq-draw 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes cq-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.chart-grow {
+  transform-origin: left center;
+  animation: cq-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .chart-draw {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Impressão — o relatório mensal sai em papel
+--------------------------------------------------------------------------- */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff;
+  }
 }

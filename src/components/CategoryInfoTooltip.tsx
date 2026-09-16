@@ -39,20 +39,20 @@ export function CategoryInfoTooltip() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="text-slate-400 hover:text-blue-500 transition ml-1.5 align-middle"
+        className="ml-1.5 align-middle text-ink-3 transition hover:text-brand"
         aria-label="Informações sobre categorias"
       >
         <HelpCircle size={16} />
       </button>
 
       {open && (
-        <div className="absolute left-0 top-6 z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-lg p-4 text-sm">
-          <p className="font-semibold text-slate-700 mb-3">Guia de Categorias</p>
+        <div className="animate-fade absolute left-0 top-6 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface p-4 text-sm shadow-float">
+          <p className="mb-3 font-semibold text-ink">Guia de Categorias</p>
           <ul className="space-y-2">
             {Object.entries(CATEGORY_INFO).map(([cat, desc]) => (
               <li key={cat}>
-                <span className="font-medium text-slate-800">{cat}:</span>{" "}
-                <span className="text-slate-500">{desc}</span>
+                <span className="font-medium text-ink">{cat}:</span>{" "}
+                <span className="text-ink-3">{desc}</span>
               </li>
             ))}
           </ul>
