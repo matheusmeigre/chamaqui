@@ -32,6 +32,32 @@ export function getClientHash(headers: RequestHeaders) {
     .digest("hex");
 }
 
+/**
+ * Chaves de contagem que não pertencem a uma organização. A coluna
+ * `organization` da tabela é só um rótulo de agrupamento: no fluxo em que o
+ * código vem primeiro, a organização ainda é desconhecida quando se tenta.
+ */
+export const THROTTLE_BUCKETS = {
+  /** Consulta e uso de código de ativação. */
+  activation: "__activation__",
+  /** Chave de acesso do responsável, sem organização informada. */
+  bootstrap: "__bootstrap__",
+} as const;
+
+/**
+ * Versão tolerante de getClientHash para rotas que não podem parar por falta
+ * de configuração: sem AUTH_RATE_LIMIT_SECRET o limite fica desligado, e isso
+ * vai para o log em vez de derrubar o login.
+ */
+export function tryGetClientHash(headers: RequestHeaders): string | null {
+  try {
+    return getClientHash(headers);
+  } catch (error) {
+    console.error("[auth-throttle] limite de tentativas desativado:", (error as Error).message);
+    return null;
+  }
+}
+
 export async function isLoginBlocked(organization: string, clientHash: string) {
   const throttle = await prisma.authThrottle.findUnique({
     where: { organization_clientHash: { organization, clientHash } },
