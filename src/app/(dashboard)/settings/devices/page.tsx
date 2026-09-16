@@ -2,9 +2,8 @@ import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { Monitor, ShieldCheck, ShieldX } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { RevokeDeviceButton } from "./revoke-device-button";
+import { FormattedDate } from "@/components/FormattedDate";
 
 export const metadata = { title: "Dispositivos | Chamaqui" };
 
@@ -50,7 +49,7 @@ export default async function DevicesPage() {
                   {device.browser ? ` • ${device.browser}` : ""}
                 </p>
                 <p className="text-xs text-slate-400">
-                  Último acesso: {device.lastSeenAt ? format(new Date(device.lastSeenAt), "dd MMM yyyy, HH:mm", { locale: ptBR }) : "—"}
+                  Último acesso: {device.lastSeenAt ? <FormattedDate date={device.lastSeenAt} pattern="dd MMM yyyy, HH:mm" /> : "—"}
                   {device.lastIp ? ` • IP ${device.lastIp}` : ""}
                 </p>
               </div>
@@ -104,7 +103,7 @@ export default async function DevicesPage() {
                     {device.browser ? ` • ${device.browser}` : ""}
                   </td>
                   <td className="px-6 py-4 text-slate-500">
-                    {device.lastSeenAt ? format(new Date(device.lastSeenAt), "dd MMM yyyy, HH:mm", { locale: ptBR }) : "—"}
+                    {device.lastSeenAt ? <FormattedDate date={device.lastSeenAt} pattern="dd MMM yyyy, HH:mm" /> : "—"}
                     {device.lastIp ? ` • ${device.lastIp}` : ""}
                   </td>
                   <td className="px-6 py-4">
@@ -123,7 +122,7 @@ export default async function DevicesPage() {
                       <RevokeDeviceButton deviceId={device.id} deviceName={device.name} />
                     ) : (
                       <span className="text-xs text-slate-400">
-                        Revogado em {device.revokedAt ? format(new Date(device.revokedAt), "dd MMM yyyy, HH:mm", { locale: ptBR }) : "—"}
+                        Revogado em {device.revokedAt ? <FormattedDate date={device.revokedAt} pattern="dd MMM yyyy, HH:mm" /> : "—"}
                       </span>
                     )}
                   </td>

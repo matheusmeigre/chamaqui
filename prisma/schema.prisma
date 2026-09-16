@@ -15,7 +15,6 @@ datasource db {
 
 enum Role {
   SOLICITANTE
-  ATENDENTE
   ADMINISTRADOR
 }
 
@@ -41,6 +40,88 @@ enum DeviceStatus {
   REVOGADO
 }
 
+// --- Grade de Chamados -------------------------------------------------------
+
+/// Eixo natureza: define quem paga e o que tem teto.
+enum TicketCategoryCode {
+  C1 // Incidente / correção — garantia, sem teto
+  C2 // Operação de conteúdo — teto por item
+  C3 // Suporte — teto por atendimento
+  C4 // Ajuste evolutivo — teto por chamado, até 8 h
+  C5 // Evolutivo estruturante — fora do contrato
+  C6 // Plataforma — teto por evento
+}
+
+/// Eixo severidade: define SLA. Aplicável somente a C1, e nunca tem teto.
+enum Severity {
+  P1
+  P2
+  P3
+  P4
+}
+
+/// Unidade em que o teto de cada categoria é contado.
+enum QuotaUnit {
+  CHAMADO
+  ITEM
+  ATENDIMENTO
+  EVENTO
+  PROJETO
+}
+
+enum TicketChannel {
+  PORTAL
+  EMAIL
+  TELEFONE
+  PRESENCIAL
+  OUTRO
+}
+
+/// Correção no servidor é instantânea; no cliente exige publicação na Play.
+enum CorrectionClass {
+  SERVIDOR
+  CLIENTE
+}
+
+enum TicketOutcome {
+  RESOLVIDO
+  IMPROCEDENTE_NAO_REPRODUZ
+  IMPROCEDENTE_ERRO_USO
+  IMPROCEDENTE_TERCEIRO
+  DUPLICADO
+  RECLASSIFICADO
+}
+
+enum ContractTier {
+  ESSENCIAL
+  PADRAO
+  AMPLIADO
+}
+
+enum ContestationDecision {
+  MANTIDA
+  ALTERADA
+  EXPIRADA
+}
+
+/// No estouro do teto a escolha é do cliente, chamado a chamado.
+enum OverrunDecision {
+  EXCEDENTE
+  FILA_PROXIMO_MES
+}
+
+enum QuotaAdjustmentType {
+  ANTECIPACAO
+  ZERAMENTO_RAJADA
+  MANUAL
+}
+
+enum HolidayScope {
+  NACIONAL
+  ESTADUAL
+  MUNICIPAL
+}
+
 // ----------------------------------------------------------------------------
 // 2. MODELS
 // ----------------------------------------------------------------------------
@@ -57,6 +138,7 @@ model Organization {
   devices         Device[]
   activationCodes ActivationCode[]
   auditLogs       AuditLog[]
+  contract        SupportContract?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -136,9 +218,63 @@ model Ticket {
 
   // Anexos do chamado
   attachmentUrls String[]
-  
+
+  // --------------------------------------------------------------------------
+  // Grade de Chamados
+  // --------------------------------------------------------------------------
+
+  /// Eixo natureza. Nullable apenas para os chamados anteriores à grade.
+  categoryCode TicketCategoryCode?
+  /// Eixo severidade. Preenchido se e somente se categoryCode = C1.
+  severity     Severity?
+  channel      TicketChannel      @default(PORTAL)
+
+  /// Marco zero do SLA. Para chamado aberto fora do canal oficial, é a data de
+  /// registro no sistema — não a da mensagem avulsa.
+  openedAt           DateTime  @default(now())
+  firstResponseAt    DateTime?
+  workaroundAt       DateTime?
+  definitiveFixAt    DateTime?
+
+  /// Define se a janela de revisão da loja é descontada do relógio de SLA.
+  correctionClass CorrectionClass?
+  sentToStoreAt   DateTime?
+  storeApprovedAt DateTime?
+
+  /// Unidades consumidas do teto: itens de C2, atendimentos de C3, eventos de C6.
+  units          Int    @default(1)
+  estimatedHours Float?
+  actualHours    Float?
+
+  outcome       TicketOutcome?
+  /// Derivado: false para todo desfecho improcedente, duplicado ou reabertura.
+  consumesQuota Boolean        @default(true)
+  /// Mês de apuração do teto, no formato YYYY-MM.
+  competency    String?
+
+  /// Reabertura e agrupamento: aponta para o chamado original.
+  parentTicketId String?
+  parentTicket   Ticket?  @relation("ReaberturaChamado", fields: [parentTicketId], references: [id], onDelete: SetNull)
+  childTickets   Ticket[] @relation("ReaberturaChamado")
+
+  // Contestação da categoria pelo cliente (5 dias úteis)
+  contestationOpenedAt  DateTime?
+  contestationDeadline  DateTime?
+  contestationReason    String?               @db.Text
+  contestationDecision  ContestationDecision?
+  contestationDecidedAt DateTime?
+
+  // Excedente: no estouro do teto, a execução fica bloqueada até a escolha
+  executionBlocked Boolean          @default(false)
+  overrunDecision  OverrunDecision?
+  overrunDecidedAt DateTime?
+
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  @@index([categoryCode, competency])
+  @@index([severity, openedAt])
+  @@index([parentTicketId])
 }
 
 model Comment {
@@ -255,4 +391,103 @@ model AuditLog {
 
   @@index([organizationId])
   @@index([createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// 4. GRADE DE CHAMADOS — CONTRATO, TETOS E CALENDÁRIO
+// ----------------------------------------------------------------------------
+
+/// Contrato de sustentação de uma organização. A faixa define capacidade,
+/// reservas de C1/P1 e os tetos mensais por categoria.
+model SupportContract {
+  id            String       @id @default(uuid())
+  tier          ContractTier @default(PADRAO)
+  /// Capacidade contratada em horas/mês. Redundante com a faixa, mas
+  /// persistida para preservar o histórico se a grade for recalibrada.
+  capacityHours Int
+  active        Boolean      @default(true)
+  startsAt      DateTime     @default(now())
+  endsAt        DateTime?
+
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  quotaOverrides ContractQuota[]
+  adjustments    QuotaAdjustment[]
+  alerts         QuotaAlert[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+}
+
+/// Teto negociado que sobrepõe o valor padrão da faixa para uma categoria.
+/// Ausência de registro significa "usar o teto da faixa".
+model ContractQuota {
+  id           String             @id @default(uuid())
+  categoryCode TicketCategoryCode
+  unit         QuotaUnit
+  /// null = sem teto para esta categoria neste contrato.
+  monthlyLimit Int?
+
+  contractId String
+  contract   SupportContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contractId, categoryCode])
+}
+
+/// Ajustes pontuais do teto de uma competência: antecipação de até 20% do mês
+/// seguinte, zeramento por rajada de P1, ou ajuste manual acordado.
+model QuotaAdjustment {
+  id           String              @id @default(uuid())
+  competency   String
+  categoryCode TicketCategoryCode
+  type         QuotaAdjustmentType
+  /// Delta em unidades aplicado ao teto da competência (pode ser negativo).
+  amount       Int
+  reason       String?             @db.Text
+
+  contractId String
+  contract   SupportContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([contractId, competency])
+}
+
+/// Registro idempotente dos avisos de 80% e 100% do teto, para não notificar
+/// o mesmo limiar duas vezes na mesma competência.
+model QuotaAlert {
+  id           String             @id @default(uuid())
+  competency   String
+  categoryCode TicketCategoryCode
+  /// Limiar atingido, em pontos percentuais (80 ou 100).
+  threshold    Int
+
+  contractId String
+  contract   SupportContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([contractId, competency, categoryCode, threshold])
+}
+
+/// Calendário de feriados usado pelo relógio de SLA em horas úteis.
+model Holiday {
+  id           String       @id @default(uuid())
+  date         DateTime     @db.Date
+  name         String
+  scope        HolidayScope
+  /// Preenchido quando scope = MUNICIPAL.
+  municipality String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([date, name])
+  @@index([date])
 }

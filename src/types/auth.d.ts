@@ -1,6 +1,6 @@
 // Tipos do fluxo de autenticação por dispositivo
 
-export type AuthRole = "SOLICITANTE" | "ATENDENTE" | "ADMINISTRADOR";
+export type AuthRole = "SOLICITANTE" | "ADMINISTRADOR";
 
 export type AuthSessionUser = {
   id: string;

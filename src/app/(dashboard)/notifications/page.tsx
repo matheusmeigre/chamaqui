@@ -1,10 +1,10 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { format } from "date-fns";
 import { Bell, Check, ExternalLink } from "lucide-react";
 import { markNotificationAsRead, markAllNotificationsAsRead } from "@/app/actions/notifications";
 import { NotificationLink } from "@/components/notifications/NotificationLink";
+import { FormattedDate } from "@/components/FormattedDate";
 
 export default async function NotificationsPage() {
   const session = await getCurrentUser();
@@ -70,7 +70,7 @@ export default async function NotificationsPage() {
                       {notif.title}
                     </h4>
                     <span className="shrink-0 text-xs text-slate-400 whitespace-nowrap sm:ml-4">
-                      {format(new Date(notif.createdAt), "dd/MM/yyyy HH:mm")}
+                      <FormattedDate date={notif.createdAt} pattern="dd/MM/yyyy HH:mm" />
                     </span>
                   </div>
                   <p className="break-words text-sm text-slate-600">

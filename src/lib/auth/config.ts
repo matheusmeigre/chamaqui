@@ -21,6 +21,13 @@ export const ACTIVATION_CODE_TTL_SECONDS = 24 * 60 * 60; // 24 horas (padrão)
 export const ACCESS_TOKEN_TYPE = "access";
 export const DEVICE_TOKEN_TYPE = "device";
 
+// Única organização que pode possuir usuários administradores
+export const ADMIN_ORGANIZATION_SLUG = "hdl";
+
+export function isAdminOrganization(slug: string): boolean {
+  return slug === ADMIN_ORGANIZATION_SLUG;
+}
+
 function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value || value.length < 16) {

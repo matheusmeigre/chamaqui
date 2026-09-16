@@ -1,19 +1,31 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
-import { ArrowLeft, User, Calendar, Tag, MessageCircle } from "lucide-react";
+import { ArrowLeft, User, Calendar, Tag, MessageCircle, Layers, AlertTriangle } from "lucide-react";
 import { redirect } from "next/navigation";
-import { format } from "date-fns";
 import { updateTicketStatus, addComment } from "@/app/actions/tickets";
 import { ImageGallery } from "./image-gallery";
 import { RequesterActions } from "./requester-actions";
+import { GridActions } from "./grid-actions";
+import { ClientGridPanel } from "./client-grid-panel";
+import { FormattedDate } from "@/components/FormattedDate";
+import { SlaPanel } from "@/components/grid/SlaPanel";
 import type { TicketStatus } from "@prisma/client";
+import { CATEGORY_DEFINITIONS, SEVERITY_DEFINITIONS } from "@/server/domain/ticket-grid";
+import { assessSla } from "@/server/services/sla-service";
+import { loadBusinessCalendar } from "@/server/services/business-hours";
+import { checkExecutionGate } from "@/server/services/quota-service";
+import { competencyOf } from "@/server/services/ticket-classification";
+import { expireOverdueContestations } from "@/server/services/quota-alerts";
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
-  
+
   const session = await getCurrentUser();
   if (!session) redirect("/login");
+
+  // Sem manifestação no prazo, a categoria atribuída é mantida.
+  await expireOverdueContestations();
 
   const ticket = await prisma.ticket.findFirst({
     where: {
@@ -33,8 +45,25 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
   if (!ticket) redirect("/tickets");
 
-  const isAttendantOrAdmin = session.role === "ATENDENTE" || session.role === "ADMINISTRADOR";
-  const canChangeStatus = isAttendantOrAdmin;
+  const canChangeStatus = session.role === "ADMINISTRADOR";
+
+  // --- Grade de Chamados ----------------------------------------------------
+  const calendar = await loadBusinessCalendar();
+  const sla = assessSla(ticket, calendar);
+
+  const organizationId = ticket.requester.organizationId;
+  const gate = organizationId
+    ? await checkExecutionGate({
+        organizationId,
+        categoryCode: ticket.categoryCode,
+        competency: ticket.competency ?? competencyOf(ticket.openedAt),
+        overrunDecisionAlreadyTaken: ticket.overrunDecision !== null,
+      })
+    : ({ allowed: true } as const);
+
+  const categoryDefinition = ticket.categoryCode
+    ? CATEGORY_DEFINITIONS[ticket.categoryCode]
+    : null;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -64,6 +93,18 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             )}
           </div>
 
+          {/* Grade: excedente e contestação de categoria */}
+          <ClientGridPanel
+            ticketId={ticket.id}
+            categoryCode={ticket.categoryCode}
+            contestationOpenedAt={ticket.contestationOpenedAt}
+            contestationDeadline={ticket.contestationDeadline}
+            contestationDecision={ticket.contestationDecision}
+            overrunDecision={ticket.overrunDecision}
+            quotaExceeded={!gate.allowed}
+            quotaMessage={gate.allowed ? null : gate.message}
+          />
+
           {/* Componente de Ação do Solicitante (Avaliar ou Reabrir) */}
           {session.id === ticket.requesterId && (ticket.status === "PENDENTE" || ticket.status === "RESOLVIDO") && (
             <RequesterActions ticketId={ticket.id} />
@@ -82,13 +123,13 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                 <div key={comment.id} className={`flex ${comment.isSystem ? 'justify-center' : 'flex-col'}`}>
                   {comment.isSystem ? (
                     <span className="max-w-full break-words bg-slate-100 text-slate-600 text-xs px-3 py-1 rounded-xl font-medium text-center">
-                      {comment.content} | {format(new Date(comment.createdAt), "dd/MM HH:mm")}
+                      {comment.content} | <FormattedDate date={comment.createdAt} pattern="dd/MM HH:mm" />
                     </span>
                   ) : (
                     <div className={`p-4 rounded-lg text-sm ${comment.authorId === session.id ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50 border border-slate-100'}`}>
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 mb-2">
                         <span className="font-semibold text-gray-800 break-words">{comment.author.name}</span>
-                        <span className="shrink-0 text-xs text-slate-400">{format(new Date(comment.createdAt), "dd/MM/yyyy HH:mm")}</span>
+                        <span className="shrink-0 text-xs text-slate-400"><FormattedDate date={comment.createdAt} pattern="dd/MM/yyyy HH:mm" /></span>
                       </div>
                       <p className="text-gray-700 whitespace-pre-wrap break-words">{comment.content}</p>
                       
@@ -158,7 +199,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               </div>
               <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center">
                 <span className="text-slate-500 flex items-center gap-1"><Calendar size={16}/> Aberto em</span>
-                <span className="font-medium">{format(new Date(ticket.createdAt), "dd/MM/yyyy HH:mm")}</span>
+                <span className="font-medium"><FormattedDate date={ticket.createdAt} pattern="dd/MM/yyyy HH:mm" /></span>
               </div>
               <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center">
                 <span className="text-slate-500 flex items-center gap-1"><Tag className="shrink-0" size={16}/> Categoria</span>
@@ -168,8 +209,72 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                 <span className="text-slate-500 flex items-center gap-1"><Tag size={16}/> SLA Padrão</span>
                 <span className="font-medium">{ticket.category.defaultSlaHours}h</span>
               </div>
+
+              {/* --- Grade de Chamados --- */}
+              <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center border-t border-slate-100 pt-3">
+                <span className="text-slate-500 flex items-center gap-1"><Layers className="shrink-0" size={16}/> Natureza</span>
+                <span className="break-words font-medium min-[400px]:text-right">
+                  {categoryDefinition ? `${ticket.categoryCode} — ${categoryDefinition.label}` : "Não classificado"}
+                </span>
+              </div>
+              {ticket.severity && (
+                <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center">
+                  <span className="text-slate-500 flex items-center gap-1"><AlertTriangle className="shrink-0" size={16}/> Severidade</span>
+                  <span className="break-words font-medium min-[400px]:text-right">
+                    {ticket.severity} — {SEVERITY_DEFINITIONS[ticket.severity].label}
+                  </span>
+                </div>
+              )}
+              {categoryDefinition && categoryDefinition.unit !== "CHAMADO" && categoryDefinition.unit !== "PROJETO" && (
+                <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center">
+                  <span className="text-slate-500 flex items-center gap-1"><Tag className="shrink-0" size={16}/> Unidades</span>
+                  <span className="font-medium">
+                    {ticket.units} {ticket.units === 1 ? categoryDefinition.unitLabel.one : categoryDefinition.unitLabel.many}
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center">
+                <span className="text-slate-500 flex items-center gap-1"><Calendar className="shrink-0" size={16}/> Competência</span>
+                <span className="font-medium">{ticket.competency ?? "—"}</span>
+              </div>
+              <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center">
+                <span className="text-slate-500 flex items-center gap-1"><Tag className="shrink-0" size={16}/> Consome teto</span>
+                <span className="font-medium">{ticket.consumesQuota ? "Sim" : "Não"}</span>
+              </div>
+              {ticket.actualHours !== null && (
+                <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center">
+                  <span className="text-slate-500 flex items-center gap-1"><Tag className="shrink-0" size={16}/> Esforço real</span>
+                  <span className="font-medium">{ticket.actualHours} h</span>
+                </div>
+              )}
+              {ticket.parentTicketId && (
+                <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-1 min-[400px]:items-center">
+                  <span className="text-slate-500 flex items-center gap-1"><Tag className="shrink-0" size={16}/> Reincidência de</span>
+                  <Link href={`/tickets/${ticket.parentTicketId}`} className="font-medium text-blue-600 hover:text-blue-800">
+                    #{ticket.parentTicketId.split("-")[0].toUpperCase()}
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
+
+          <SlaPanel assessment={sla} />
+
+          {canChangeStatus && (
+            <GridActions
+              ticketId={ticket.id}
+              categoryCode={ticket.categoryCode}
+              severity={ticket.severity}
+              units={ticket.units}
+              actualHours={ticket.actualHours}
+              correctionClass={ticket.correctionClass}
+              sentToStoreAt={ticket.sentToStoreAt}
+              storeApprovedAt={ticket.storeApprovedAt}
+              workaroundAt={ticket.workaroundAt}
+              contestationOpen={Boolean(ticket.contestationOpenedAt) && !ticket.contestationDecision}
+              contestationReason={ticket.contestationReason}
+            />
+          )}
 
           {canChangeStatus && (
             <div className="bg-blue-50 rounded-xl shadow-sm border border-blue-100 p-4 sm:p-6 space-y-4">
