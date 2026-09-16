@@ -51,8 +51,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
 
 ## Fluxo de autenticação
 
-1. O usuário escolhe a organização na tela `/login`.
-2. Um código curto (`XXXX-XXXX`, uso único, expira em 30 dias) ou QR Code ativa o dispositivo.
+1. Na tela `/login` o usuário informa o código curto (`XXXX-XXXX`, uso único, expira em 30 dias) ou escaneia o QR Code. **A organização é identificada pelo código**: a lista de clientes nunca é exibida nem exposta por API.
+2. A tela mostra a organização e a permissão do código para confirmação, e só então o dispositivo é ativado.
+   Consultas e ativações com código inexistente contam para o limite de tentativas (5 falhas por cliente bloqueiam por 5 minutos, via `AUTH_RATE_LIMIT_SECRET`; sem essa variável o limite fica desligado e o motivo vai para o log).
 3. O dispositivo recebe: **access token** (15 min), **refresh token** (30 dias, criptografado em repouso) e **device token** (180 dias).
 4. O refresh token sofre **rotação a cada uso** (o antigo é revogado).
 5. **Revogação centralizada**: admins podem revogar dispositivos em `/settings/devices`; a revogação é verificada a cada acesso.
@@ -60,7 +61,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
 
 ## Primeiro acesso (bootstrap)
 
-Para o primeiro login não é preciso ser admin antes: na tela `/login`, use "Sou responsável pela organização — gerar código de acesso" e informe a **chave de acesso** da organização (`ORG_ACCESS_KEY_<SLUG>` ou as variáveis legadas `HDL_ACCESS_KEY`/`INSTITUTO_ENERGISA_ACCESS_KEY`). O sistema gera um código de ativação de administrador de uso único (válido 24h), com o qual o dispositivo é ativado. Depois disso, os demais códigos são gerados em **Configurações → Códigos de Ativação**.
+Para o primeiro login não é preciso ser admin antes: na tela `/login`, use "Sou responsável pela organização" e informe apenas a **chave de acesso** da organização (`ORG_ACCESS_KEY_<SLUG>` ou as variáveis legadas `HDL_ACCESS_KEY`/`INSTITUTO_ENERGISA_ACCESS_KEY`) — a organização é descoberta pela chave, que por isso deve ser única entre organizações (chave repetida é recusada e registrada no log). O sistema gera um código de ativação de uso único (válido 24h; administrador para a HDL, solicitante para as demais), que já leva à confirmação e ativação do dispositivo. Depois disso, os demais códigos são gerados em **Configurações → Códigos de Ativação**.
 
 ## Grade de Chamados
 
