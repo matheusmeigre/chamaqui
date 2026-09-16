@@ -8,6 +8,11 @@ export async function GET() {
     return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });
   }
 
-  const metrics = await getDashboardMetrics();
+  // Mesmo recorte da dashboard: solicitante não enxerga a contagem global.
+  const metrics = await getDashboardMetrics({
+    userId: session.id,
+    role: session.role,
+    organizationId: session.role === "SOLICITANTE" ? session.organizationId : null,
+  });
   return NextResponse.json(metrics);
 }
