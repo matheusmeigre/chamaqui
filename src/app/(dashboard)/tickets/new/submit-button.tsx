@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 
 export function SubmitButton() {
   const { pending } = useFormStatus();
@@ -10,15 +10,18 @@ export function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex min-h-11 w-full sm:w-auto items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50"
+      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 text-sm font-semibold text-on-brand shadow-card transition hover:bg-brand-strong disabled:opacity-60 sm:w-auto"
     >
       {pending ? (
         <>
-          <Loader2 className="h-5 w-5 animate-spin" />
-          Enviando...
+          <Loader2 size={16} className="animate-spin" />
+          Registrando…
         </>
       ) : (
-        "Abrir Chamado"
+        <>
+          <Send size={16} />
+          Abrir chamado
+        </>
       )}
     </button>
   );
