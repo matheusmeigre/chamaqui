@@ -123,7 +123,19 @@ npx prisma migrate deploy
 npm run seed
 ```
 
-Alternativa: executar `prisma/supabase-init.sql` no editor SQL do Supabase.
+Alternativa sem CLI: executar `prisma/supabase-init.sql` no editor SQL do
+Supabase e **depois** rodar `npm run seed`. Esse arquivo aplica apenas o schema
+— os dados vêm sempre de `prisma/seed.ts`, para não existirem duas fontes de
+verdade divergentes.
+
+Ele é gerado a partir do schema, não editado à mão:
+
+```bash
+npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script
+```
+
+O seed cria organizações, categorias, o contrato de sustentação e os feriados
+nacionais. Para anexos, crie também o bucket **`tickets`** no Supabase Storage.
 
 O fluxo de login também auto-provê as organizações no primeiro acesso; categorias são inseridas apenas pelo seed/script init.
 

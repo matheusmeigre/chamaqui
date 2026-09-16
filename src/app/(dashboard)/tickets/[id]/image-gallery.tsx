@@ -1,64 +1,114 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react";
 
 interface ImageGalleryProps {
   urls: string[];
 }
 
 export function ImageGallery({ urls }: ImageGalleryProps) {
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!selectedImage) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedImage(null);
+    if (selected === null) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelected(null);
+      if (event.key === "ArrowRight") setSelected((index) => (index === null ? null : (index + 1) % urls.length));
+      if (event.key === "ArrowLeft")
+        setSelected((index) => (index === null ? null : (index - 1 + urls.length) % urls.length));
     };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [selectedImage]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected, urls.length]);
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:gap-4">
-        {urls.map((url, i) => (
-          <button 
-            key={i} 
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+        {urls.map((url, index) => (
+          <button
+            key={url}
             type="button"
-            onClick={() => setSelectedImage(url)} 
-            className="block aspect-square w-full sm:w-32 border border-slate-200 rounded-lg overflow-hidden hover:border-blue-500 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onClick={() => setSelected(index)}
+            className="group relative block aspect-square w-full overflow-hidden rounded-xl border border-line bg-surface-2 transition hover:border-brand"
+            aria-label={`Ampliar anexo ${index + 1}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={url} alt={`Anexo ${i + 1}`} className="h-full w-full object-cover" />
+            <img
+              src={url}
+              alt={`Anexo ${index + 1}`}
+              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+            />
           </button>
         ))}
       </div>
 
-      {selectedImage && (
-        <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm transition-opacity"
-          onClick={() => setSelectedImage(null)}
+      {selected !== null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Anexo ${selected + 1} de ${urls.length}`}
+          className="animate-fade fixed inset-0 z-100 flex items-center justify-center bg-black/85 p-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm"
+          onClick={() => setSelected(null)}
         >
-          <div 
-            className="relative flex max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-1.5rem)] items-center justify-center pt-14 animate-in"
-            onClick={(e) => e.stopPropagation()} // Impede que clicar na imagem em si feche o modal
-          >
-            <button 
-              onClick={() => setSelectedImage(null)}
-              aria-label="Fechar imagem"
-              className="absolute top-0 right-0 grid min-h-11 min-w-11 place-items-center text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition"
+          <div className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] flex items-center gap-1">
+            <span className="mr-2 text-sm tabular-nums text-white/70">
+              {selected + 1} / {urls.length}
+            </span>
+            <a
+              href={urls[selected]}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(event) => event.stopPropagation()}
+              aria-label="Abrir original em nova aba"
+              className="grid h-11 w-11 place-items-center rounded-full text-white/75 transition hover:bg-white/10 hover:text-white"
             >
-              <X size={28} />
+              <ExternalLink size={20} />
+            </a>
+            <button
+              type="button"
+              onClick={() => setSelected(null)}
+              aria-label="Fechar imagem"
+              className="grid h-11 w-11 place-items-center rounded-full text-white/75 transition hover:bg-white/10 hover:text-white"
+            >
+              <X size={24} />
             </button>
-            
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              src={selectedImage} 
-              alt="Imagem ampliada" 
-              className="max-w-full max-h-[calc(100dvh-5.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] rounded-lg shadow-2xl object-scale-down"
-            />
           </div>
+
+          {urls.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Imagem anterior"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSelected((selected - 1 + urls.length) % urls.length);
+                }}
+                className="absolute left-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+              >
+                <ChevronLeft size={22} />
+              </button>
+              <button
+                type="button"
+                aria-label="Próxima imagem"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSelected((selected + 1) % urls.length);
+                }}
+                className="absolute right-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+              >
+                <ChevronRight size={22} />
+              </button>
+            </>
+          )}
+
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={urls[selected]}
+            alt={`Anexo ${selected + 1} ampliado`}
+            onClick={(event) => event.stopPropagation()}
+            className="max-h-[calc(100dvh-7rem)] max-w-[calc(100vw-7rem)] rounded-xl object-scale-down shadow-2xl"
+          />
         </div>
       )}
     </>

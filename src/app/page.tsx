@@ -1,20 +1,121 @@
-﻿import Link from 'next/link';
-import { ArrowRight, Ticket, Clock, ShieldCheck } from 'lucide-react';
+import Link from "next/link";
+import {
+  AlarmClock,
+  ArrowRight,
+  BarChart3,
+  CheckCircle2,
+  Gauge,
+  KeyRound,
+  Layers,
+  MessagesSquare,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
+
+const FEATURES = [
+  {
+    icon: Layers,
+    title: "Abertura guiada",
+    text: "O solicitante classifica a demanda na grade C1–C6 e já vê o prazo que vale para ela.",
+  },
+  {
+    icon: AlarmClock,
+    title: "SLA em horas úteis",
+    text: "Primeira resposta, contorno e correção medidos com feriados e janela de loja descontada.",
+  },
+  {
+    icon: Gauge,
+    title: "Consumo × teto",
+    text: "Alerta em 80%, bloqueio em 100% e a decisão de excedente registrada chamado a chamado.",
+  },
+  {
+    icon: BarChart3,
+    title: "BI da operação",
+    text: "Entrada × saída da fila, envelhecimento, causa raiz e relatório mensal pronto para imprimir.",
+  },
+  {
+    icon: MessagesSquare,
+    title: "Conversa com histórico",
+    text: "Mensagens, anexos e eventos do sistema numa linha do tempo única por chamado.",
+  },
+  {
+    icon: KeyRound,
+    title: "Acesso sem senha",
+    text: "Ativação por código ou QR, vinculada ao dispositivo e revogável na hora.",
+  },
+];
+
+/** Prévia ilustrativa do painel — números fictícios, só para ambientar. */
+function PanelPreview() {
+  const bars = [38, 52, 44, 61, 57, 72, 66, 80, 74, 88, 79, 92];
+  return (
+    <div aria-hidden className="relative rounded-2xl border border-line bg-surface p-3 shadow-float sm:p-4">
+      <div className="mb-3 flex items-center gap-1.5">
+        <span className="h-2.5 w-2.5 rounded-full bg-line-strong" />
+        <span className="h-2.5 w-2.5 rounded-full bg-line-strong" />
+        <span className="h-2.5 w-2.5 rounded-full bg-line-strong" />
+        <span className="ml-3 h-5 flex-1 rounded-md bg-surface-2" />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Fila ativa", value: "24", tone: "bg-brand" },
+          { label: "SLA cumprido", value: "96%", tone: "bg-good" },
+          { label: "Em risco", value: "3", tone: "bg-warning" },
+        ].map((tile) => (
+          <div key={tile.label} className="rounded-xl border border-line bg-surface-2 p-2.5">
+            <p className="text-[10px] text-ink-3">{tile.label}</p>
+            <p className="mt-0.5 text-lg font-bold leading-none text-ink">{tile.value}</p>
+            <span className={`mt-2 block h-1 w-2/3 rounded-full ${tile.tone}`} />
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 grid grid-cols-5 gap-2">
+        <div className="col-span-3 rounded-xl border border-line bg-surface-2 p-2.5">
+          <p className="text-[10px] text-ink-3">Entrada × saída</p>
+          <div className="mt-2 flex h-20 items-end gap-1">
+            {bars.map((height, index) => (
+              <span
+                key={index}
+                className="flex-1 rounded-t-[3px] bg-brand/80"
+                style={{ height: `${height}%` }}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="col-span-2 space-y-1.5 rounded-xl border border-line bg-surface-2 p-2.5">
+          <p className="text-[10px] text-ink-3">Consumo do teto</p>
+          {[62, 84, 35].map((width, index) => (
+            <div key={index} className="h-1.5 rounded-full bg-surface-3">
+              <span
+                className={`block h-full rounded-full ${width >= 80 ? "bg-warning" : "bg-brand"}`}
+                style={{ width: `${width}%` }}
+              />
+            </div>
+          ))}
+          <p className="pt-1 text-[10px] text-ink-3">C2 · C3 · C4</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <div className="min-h-[100dvh] bg-slate-50 flex flex-col pt-[env(safe-area-inset-top)]">
-      {/* Header */}
-      <header className="w-full bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Ticket className="h-8 w-8 text-blue-600" />
-            <span className="text-2xl font-bold text-slate-900">Chamaqui</span>
-          </div>
-          <nav>
-            <Link 
-              href="/login" 
-              className="inline-flex min-h-11 items-center justify-center px-4 sm:px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+    <div className="flex min-h-dvh flex-col bg-canvas pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-20 border-b border-line bg-surface/80 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+          <span className="flex items-center gap-2">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-on-brand">
+              <Sparkles size={16} strokeWidth={2.4} />
+            </span>
+            <span className="text-lg font-bold tracking-tight text-ink">Chamaqui</span>
+          </span>
+          <nav className="flex items-center gap-2">
+            <ThemeToggle />
+            <Link
+              href="/login"
+              className="inline-flex min-h-10 items-center rounded-xl bg-brand px-4 text-sm font-medium text-on-brand shadow-card transition hover:bg-brand-strong"
             >
               Entrar
             </Link>
@@ -22,50 +123,77 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 py-12 text-center">
-        <h1 className="text-3xl min-[360px]:text-4xl sm:text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6">
-          Sua Gestão de TI,<br className="hidden min-[360px]:block" />
-          <span className="text-blue-600">Simplificada.</span>
-        </h1>
-        <p className="max-w-2xl text-lg sm:text-xl text-slate-600 mb-10">
-          A plataforma Chamaqui conecta solicitantes e desenvolvedores de forma ágil. Acompanhe tickets, cumpra SLAs e revolucione o suporte da sua empresa.
-        </p>
-        <Link 
-          href="/login"
-          className="inline-flex items-center gap-2 px-8 py-4 text-lg font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl"
-        >
-          Acessar a Plataforma
-          <ArrowRight className="h-5 w-5" />
-        </Link>
+      <main className="flex-1">
+        <section className="relative overflow-hidden">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-144 bg-[radial-gradient(55%_60%_at_50%_0%,color-mix(in_srgb,var(--brand)_18%,transparent),transparent_70%)]"
+          />
+          <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-14 sm:px-6 md:py-20 lg:grid-cols-2 lg:px-8">
+            <div className="animate-fade-up">
+              <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink-2 shadow-card">
+                <ShieldCheck size={13} className="text-good" />
+                Sustentação com SLA contratual
+              </span>
+              <h1 className="mt-5 text-balance text-4xl font-bold leading-[1.08] tracking-tight text-ink sm:text-5xl lg:text-6xl">
+                Chamados sob controle, <span className="text-brand">do registro à validação.</span>
+              </h1>
+              <p className="mt-5 max-w-xl text-lg leading-relaxed text-ink-2">
+                Abra, acompanhe e valide incidentes com prazos em horas úteis, consumo de teto
+                transparente e indicadores que mostram onde agir primeiro.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-base font-semibold text-on-brand shadow-raised transition hover:bg-brand-strong"
+                >
+                  Acessar a plataforma
+                  <ArrowRight size={18} />
+                </Link>
+              </div>
+              <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm text-ink-3">
+                {["Sem senha para lembrar", "Modo claro e escuro", "Funciona no celular"].map((item) => (
+                  <li key={item} className="flex items-center gap-1.5">
+                    <CheckCircle2 size={15} className="text-good" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-        {/* Features Preview */}
-        <div className="mt-16 md:mt-24 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 max-w-5xl w-full">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-full mb-4">
-              <Ticket className="h-6 w-6" />
+            <div className="animate-fade-up [animation-delay:120ms]">
+              <PanelPreview />
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Abertura Rápida</h3>
-            <p className="text-slate-600 text-sm">Crie chamados com facilidade e anexe evidências.</p>
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
-            <div className="p-3 bg-green-50 text-green-600 rounded-full mb-4">
-              <Clock className="h-6 w-6" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">SLA Inteligente</h3>
-            <p className="text-slate-600 text-sm">Sem atrasos. Acompanhe os prazos de resolução em tempo real.</p>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6 lg:px-8">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+              Tudo o que a gestão de chamados precisa, num só lugar
+            </h2>
+            <p className="mt-2 text-ink-2">
+              Da primeira mensagem ao relatório do mês, cada etapa deixa rastro e vira indicador.
+            </p>
           </div>
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
-            <div className="p-3 bg-purple-50 text-purple-600 rounded-full mb-4">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Resolução Eficaz</h3>
-            <p className="text-slate-600 text-sm">Histórico completo, aprovação e pesquisa de satisfação.</p>
-          </div>
-        </div>
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((feature) => (
+              <li
+                key={feature.title}
+                className="rounded-2xl border border-line bg-surface p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-raised"
+              >
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-soft text-brand-ink">
+                  <feature.icon size={19} />
+                </span>
+                <h3 className="mt-4 font-semibold text-ink">{feature.title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-ink-2">{feature.text}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
       </main>
 
-      <footer className="w-full text-center px-4 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-slate-500 text-sm">
+      <footer className="border-t border-line px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 text-center text-sm text-ink-3">
         &copy; {new Date().getFullYear()} Plataforma Chamaqui. Todos os direitos reservados.
       </footer>
     </div>

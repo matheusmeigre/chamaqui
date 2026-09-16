@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
-import { DashboardLayoutInner } from "./dashboard-layout-inner";
+import prisma from "@/lib/prisma";
+import { AppShell } from "@/components/layout/AppShell";
 import { getUnreadNotificationsCount } from "@/server/services/notification-service";
 
 export default async function DashboardLayout({
@@ -14,14 +15,26 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const unreadNotificationsCount = await getUnreadNotificationsCount(session.id);
+  const [unreadNotificationsCount, organization] = await Promise.all([
+    getUnreadNotificationsCount(session.id),
+    session.organizationId
+      ? prisma.organization.findUnique({
+          where: { id: session.organizationId },
+          select: { name: true },
+        })
+      : Promise.resolve(null),
+  ]);
 
   return (
-    <DashboardLayoutInner 
-      user={{ name: session.name, role: session.role }} 
+    <AppShell
+      user={{
+        name: session.name,
+        role: session.role,
+        organizationName: organization?.name ?? null,
+      }}
       unreadCount={unreadNotificationsCount}
     >
       {children}
-    </DashboardLayoutInner>
+    </AppShell>
   );
 }

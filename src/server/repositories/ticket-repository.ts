@@ -16,9 +16,10 @@ const statusSeed: Record<TicketStatus, number> = {
   CANCELADO: 0,
 };
 
-export async function getTicketStatusCounts() {
+export async function getTicketStatusCounts(where?: Prisma.TicketWhereInput) {
   const grouped = await prisma.ticket.groupBy({
     by: ["status"],
+    where,
     _count: { _all: true },
   });
 
@@ -39,6 +40,9 @@ export async function getRecentTickets({ take, where }: RecentTicketsParams) {
       id: true,
       title: true,
       status: true,
+      severity: true,
+      categoryCode: true,
+      priority: true,
       updatedAt: true,
       requester: { select: { name: true } },
       assignee: { select: { name: true } },

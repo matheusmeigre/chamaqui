@@ -1,115 +1,145 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
-import { CheckCircle, AlertCircle, Loader2 } from "lucide-react";
-import { updateTicketStatus } from "@/app/actions/tickets";
+import { useEffect, useState, useTransition } from "react";
+import { AlertCircle, CheckCircle, Loader2, Wrench } from "lucide-react";
 import type { TicketStatus } from "@prisma/client";
+import { updateTicketStatus } from "@/app/actions/tickets";
+import { Card, CardBody, CardHeader } from "@/components/ui";
+import { STATUS_DOT, STATUS_LABEL, STATUS_ORDER } from "@/components/domain/labels";
+import { cn } from "@/lib/ui";
 
-const STATUS_LABELS: Record<string, string> = {
-  ABERTO: "Aberto",
-  EM_TRIAGEM: "Em Triagem",
-  EM_ATENDIMENTO: "Em Atendimento",
-  PENDENTE: "Pendente (Aguardando Retorno)",
-  RESOLVIDO: "Resolvido",
-  FECHADO: "Fechado",
-  CANCELADO: "Cancelado",
+const STATUS_HINT: Partial<Record<TicketStatus, string>> = {
+  EM_TRIAGEM: "Classificar e dimensionar",
+  EM_ATENDIMENTO: "Assume o chamado para você",
+  PENDENTE: "Aguardando retorno do solicitante",
+  RESOLVIDO: "Pede a validação do solicitante",
+  FECHADO: "Encerra sem validação",
+  CANCELADO: "Descarta o chamado",
 };
 
 interface Props {
   ticketId: string;
-  currentStatus: string;
+  currentStatus: TicketStatus;
 }
 
 export function TechStatusForm({ ticketId, currentStatus }: Props) {
   const [isPending, startTransition] = useTransition();
-  const [selectedStatus, setSelectedStatus] = useState(currentStatus);
-  const [feedback, setFeedback] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<TicketStatus>(currentStatus);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
+    null
+  );
 
-  // Sync quando o servidor revalida e passa o novo currentStatus
+  // Sincroniza quando o servidor revalida e devolve o novo status.
   useEffect(() => {
     setSelectedStatus(currentStatus);
   }, [currentStatus]);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setFeedback(null);
 
     startTransition(async () => {
       try {
-        await updateTicketStatus(ticketId, selectedStatus as TicketStatus);
+        await updateTicketStatus(ticketId, selectedStatus);
         setFeedback({
           type: "success",
-          message: `Status alterado para "${STATUS_LABELS[selectedStatus]}" com sucesso!`,
+          message: `Status alterado para “${STATUS_LABEL[selectedStatus]}”.`,
         });
         setTimeout(() => setFeedback(null), 5000);
       } catch {
-        setFeedback({
-          type: "error",
-          message: "Erro ao alterar status. Tente novamente.",
-        });
+        setFeedback({ type: "error", message: "Erro ao alterar status. Tente novamente." });
       }
     });
   }
 
   return (
-    <div className="bg-blue-50 rounded-xl shadow-sm border border-blue-100 p-6 space-y-4">
-      <h3 className="text-lg font-semibold text-blue-900 border-b border-blue-200 pb-2">
-        Ações Técnicas
-      </h3>
+    <Card>
+      <CardHeader
+        icon={<Wrench size={16} />}
+        title="Mover no fluxo"
+        subtitle="Alterar o status assume o chamado para você"
+      />
+      <CardBody>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div role="radiogroup" aria-label="Novo status" className="grid grid-cols-1 gap-1.5">
+            {STATUS_ORDER.map((status) => {
+              const active = selectedStatus === status;
+              const current = currentStatus === status;
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  disabled={isPending}
+                  onClick={() => setSelectedStatus(status)}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition disabled:opacity-60",
+                    active
+                      ? "border-brand bg-brand-soft"
+                      : "border-line bg-surface hover:border-line-strong hover:bg-surface-2"
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: STATUS_DOT[status] }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className={cn("block text-sm", active ? "font-semibold text-ink" : "text-ink-2")}>
+                      {STATUS_LABEL[status]}
+                    </span>
+                    {STATUS_HINT[status] && (
+                      <span className="block truncate text-[11px] text-ink-3">{STATUS_HINT[status]}</span>
+                    )}
+                  </span>
+                  {current && (
+                    <span className="shrink-0 rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-3">
+                      Atual
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-      {feedback && (
-        <div
-          className={`flex items-center gap-2 text-sm rounded-lg px-3 py-2.5 font-medium ${
-            feedback.type === "success"
-              ? "bg-green-50 border border-green-200 text-green-800"
-              : "bg-red-50 border border-red-200 text-red-800"
-          }`}
-        >
-          {feedback.type === "success" ? (
-            <CheckCircle size={16} className="shrink-0" />
-          ) : (
-            <AlertCircle size={16} className="shrink-0" />
+          {feedback && (
+            <div
+              role="status"
+              className={cn(
+                "flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium",
+                feedback.type === "success"
+                  ? "bg-good-soft text-good-ink"
+                  : "bg-critical-soft text-critical-ink"
+              )}
+            >
+              {feedback.type === "success" ? (
+                <CheckCircle size={15} className="shrink-0" />
+              ) : (
+                <AlertCircle size={15} className="shrink-0" />
+              )}
+              {feedback.message}
+            </div>
           )}
-          {feedback.message}
-        </div>
-      )}
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <label className="block text-sm font-medium text-blue-800">
-          Alterar Status e Assumir
-        </label>
-        <select
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value)}
-          disabled={isPending}
-          className="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm bg-white outline-none text-slate-900 disabled:opacity-60"
-        >
-          <option value="ABERTO">Aberto</option>
-          <option value="EM_TRIAGEM">Em Triagem</option>
-          <option value="EM_ATENDIMENTO">Em Atendimento</option>
-          <option value="PENDENTE">Pendente (Aguardando Retorno)</option>
-          <option value="RESOLVIDO">Resolvido</option>
-          <option value="FECHADO">Fechado</option>
-          <option value="CANCELADO">Cancelado</option>
-        </select>
-        <button
-          type="submit"
-          disabled={isPending || selectedStatus === currentStatus}
-          className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {isPending ? (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              Aplicando...
-            </>
-          ) : (
-            "Confirmar Ação"
-          )}
-        </button>
-      </form>
-    </div>
+          <button
+            type="submit"
+            disabled={isPending || selectedStatus === currentStatus}
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-medium text-on-brand shadow-card transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isPending ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Aplicando…
+              </>
+            ) : selectedStatus === currentStatus ? (
+              "Selecione um novo status"
+            ) : (
+              `Mover para ${STATUS_LABEL[selectedStatus]}`
+            )}
+          </button>
+        </form>
+      </CardBody>
+    </Card>
   );
 }

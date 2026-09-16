@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldOff } from "lucide-react";
+import { cn } from "@/lib/ui";
 
 export function RevokeDeviceButton({
   deviceId,
@@ -13,43 +14,56 @@ export function RevokeDeviceButton({
   className?: string;
 }) {
   const [isPending, startTransition] = useTransition();
-  const [confirmed, setConfirmed] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState(false);
 
-  if (!confirmed) {
+  if (!confirming) {
     return (
       <button
-        onClick={() => setConfirmed(true)}
-        className={`min-h-11 rounded-lg border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 px-4 py-2 transition ${className}`}
+        type="button"
+        onClick={() => {
+          setError(false);
+          setConfirming(true);
+        }}
+        className={cn(
+          "inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-line px-3 text-xs font-medium text-ink-2 transition hover:border-critical/50 hover:bg-critical-soft hover:text-critical-ink",
+          className
+        )}
       >
+        <ShieldOff size={13} />
         Revogar
+        {error && <span className="text-critical-ink">· falhou</span>}
       </button>
     );
   }
 
   return (
-    <div className={`flex items-center gap-2 flex-wrap ${className}`}>
-      <span className="text-sm text-slate-600">Revogar &quot;{deviceName}&quot;?</span>
+    <div className={cn("inline-flex flex-wrap items-center justify-end gap-1.5", className)}>
+      <span className="text-xs text-ink-2">Revogar “{deviceName}”?</span>
       <button
-        onClick={() => setConfirmed(false)}
-        className="min-h-11 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 px-3 py-2 transition"
+        type="button"
+        onClick={() => setConfirming(false)}
+        className="min-h-9 rounded-xl px-3 text-xs font-medium text-ink-3 transition hover:text-ink"
       >
         Cancelar
       </button>
       <button
+        type="button"
         disabled={isPending}
         onClick={() => {
           startTransition(async () => {
-            const res = await fetch(`/api/admin/devices/${deviceId}/revoke`, { method: "POST" });
-            if (res.ok) {
+            const response = await fetch(`/api/admin/devices/${deviceId}/revoke`, { method: "POST" });
+            if (response.ok) {
               window.location.reload();
             } else {
-              setConfirmed(false);
+              setError(true);
+              setConfirming(false);
             }
           });
         }}
-        className="min-h-11 inline-flex items-center gap-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 px-4 py-2 transition disabled:opacity-50"
+        className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-critical px-3 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
       >
-        {isPending ? <Loader2 size={16} className="animate-spin" /> : null}
+        {isPending && <Loader2 size={13} className="animate-spin" />}
         Confirmar
       </button>
     </div>

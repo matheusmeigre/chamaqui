@@ -1,11 +1,27 @@
-import { getCurrentUser } from "@/lib/auth/session";
-import prisma from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { Monitor, ShieldCheck, ShieldX } from "lucide-react";
-import { RevokeDeviceButton } from "./revoke-device-button";
+import { Globe, Laptop, Monitor, ShieldCheck, ShieldX, Smartphone } from "lucide-react";
+import prisma from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/session";
 import { FormattedDate } from "@/components/FormattedDate";
+import { Badge, Card, EmptyState, PageHeader, TableShell, Td, Th } from "@/components/ui";
+import { StatTile } from "@/components/ui/StatTile";
+import { formatAge } from "@/lib/ui";
+import { RevokeDeviceButton } from "./revoke-device-button";
 
 export const metadata = { title: "Dispositivos | Chamaqui" };
+
+function DeviceIcon({ platform }: { platform: string | null }) {
+  const text = (platform ?? "").toLowerCase();
+  if (/android|ios|iphone|ipad/.test(text)) return <Smartphone size={16} />;
+  if (/windows|mac|linux/.test(text)) return <Laptop size={16} />;
+  return <Monitor size={16} />;
+}
+
+/** Dispositivos vistos nos últimos N dias — o relógio fica fora da renderização. */
+function countSeenWithin(devices: Array<{ lastSeenAt: Date | null }>, days: number): number {
+  const since = Date.now() - days * 86_400_000;
+  return devices.filter((device) => device.lastSeenAt && device.lastSeenAt.getTime() >= since).length;
+}
 
 export default async function DevicesPage() {
   const session = await getCurrentUser();
@@ -17,121 +33,153 @@ export default async function DevicesPage() {
   const devices = await prisma.device.findMany({
     where: { organizationId: session.organizationId ?? "" },
     include: { user: { select: { name: true, email: true } } },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ status: "asc" }, { lastSeenAt: { sort: "desc", nulls: "last" } }],
   });
 
+  const active = devices.filter((device) => device.status === "ATIVO");
+  const seenThisWeek = countSeenWithin(active, 7);
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Monitor className="shrink-0 text-gray-800" size={28} />
-        <h2 className="break-words text-2xl font-bold text-gray-800">Dispositivos Confiáveis</h2>
-      </div>
-      <p className="text-sm text-slate-500 -mt-4">
-        Revogue o acesso de dispositivos perdidos ou não reconhecidos. A revogação é imediata.
-      </p>
+    <div className="space-y-5">
+      <PageHeader
+        title="Dispositivos"
+        description="Revogue o acesso de dispositivos perdidos ou não reconhecidos. A revogação é imediata."
+      />
 
-      <div className="space-y-3 md:hidden">
-        {devices.length === 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">
-            Nenhum dispositivo cadastrado ainda.
-          </div>
-        )}
-        {devices.map((device) => (
-          <div key={device.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="break-words font-semibold text-slate-900">{device.name}</p>
-                <p className="text-sm text-slate-500">
-                  {device.user.name} • {device.user.email}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {device.platform && `${device.platform}`}
-                  {device.browser ? ` • ${device.browser}` : ""}
-                </p>
-                <p className="text-xs text-slate-400">
-                  Último acesso: {device.lastSeenAt ? <FormattedDate date={device.lastSeenAt} pattern="dd MMM yyyy, HH:mm" /> : "—"}
-                  {device.lastIp ? ` • IP ${device.lastIp}` : ""}
-                </p>
-              </div>
-              {device.status === "REVOGADO" ? (
-                <span className="inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium bg-red-100 text-red-700">
-                  <ShieldX size={12} /> Revogado
-                </span>
-              ) : (
-                <span className="inline-flex shrink-0 items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700">
-                  <ShieldCheck size={12} /> Ativo
-                </span>
-              )}
-            </div>
-            {device.status === "ATIVO" && (
-              <RevokeDeviceButton deviceId={device.id} deviceName={device.name} className="mt-3" />
-            )}
-          </div>
-        ))}
-      </div>
+      <section className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-3 sm:gap-4">
+        <StatTile label="Ativos" value={String(active.length)} icon={<ShieldCheck size={16} />} tone="good" />
+        <StatTile
+          label="Acessaram nos últimos 7 dias"
+          value={String(seenThisWeek)}
+          icon={<Globe size={16} />}
+          tone="brand"
+        />
+        <StatTile
+          label="Revogados"
+          value={String(devices.length - active.length)}
+          icon={<ShieldX size={16} />}
+          tone="neutral"
+        />
+      </section>
 
-      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-[860px] w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 text-slate-700 font-medium border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4">Dispositivo</th>
-                <th className="px-6 py-4">Usuário</th>
-                <th className="px-6 py-4">Plataforma / Navegador</th>
-                <th className="px-6 py-4">Último acesso</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {devices.length === 0 && (
+      {devices.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<Monitor size={20} />}
+            title="Nenhum dispositivo cadastrado"
+            description="Dispositivos aparecem aqui depois de ativados por código ou QR Code."
+          />
+        </Card>
+      ) : (
+        <>
+          <ul className="space-y-2.5 md:hidden">
+            {devices.map((device) => (
+              <li key={device.id} className="rounded-2xl border border-line bg-surface p-4 shadow-card">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-3 text-ink-2">
+                    <DeviceIcon platform={device.platform} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-ink">{device.name}</p>
+                    <p className="truncate text-sm text-ink-3">{device.user.name}</p>
+                    <p className="mt-1 text-xs text-ink-3">
+                      {[device.platform, device.browser].filter(Boolean).join(" · ") || "Plataforma desconhecida"}
+                    </p>
+                  </div>
+                  <StatusBadge status={device.status} />
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
+                  <span className="text-xs text-ink-3">
+                    {device.lastSeenAt ? `Visto ${formatAge(device.lastSeenAt)}` : "Nunca acessou"}
+                  </span>
+                  {device.status === "ATIVO" && (
+                    <RevokeDeviceButton deviceId={device.id} deviceName={device.name} />
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <Card className="hidden overflow-hidden md:block">
+            <TableShell minWidth={900}>
+              <thead>
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                    Nenhum dispositivo cadastrado ainda.
-                  </td>
+                  <Th>Dispositivo</Th>
+                  <Th>Usuário</Th>
+                  <Th>Último acesso</Th>
+                  <Th>Status</Th>
+                  <Th align="right">Ação</Th>
                 </tr>
-              )}
-              {devices.map((device) => (
-                <tr key={device.id} className="hover:bg-slate-50 transition">
-                  <td className="px-6 py-4 font-medium text-slate-900">{device.name}</td>
-                  <td className="px-6 py-4">
-                    <p className="text-slate-900">{device.user.name}</p>
-                    <p className="text-xs text-slate-400">{device.user.email}</p>
-                  </td>
-                  <td className="px-6 py-4 text-slate-500">
-                    {device.platform && `${device.platform}`}
-                    {device.browser ? ` • ${device.browser}` : ""}
-                  </td>
-                  <td className="px-6 py-4 text-slate-500">
-                    {device.lastSeenAt ? <FormattedDate date={device.lastSeenAt} pattern="dd MMM yyyy, HH:mm" /> : "—"}
-                    {device.lastIp ? ` • ${device.lastIp}` : ""}
-                  </td>
-                  <td className="px-6 py-4">
-                    {device.status === "REVOGADO" ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                        <ShieldX size={12} /> Revogado
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                        <ShieldCheck size={12} /> Ativo
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {device.status === "ATIVO" ? (
-                      <RevokeDeviceButton deviceId={device.id} deviceName={device.name} />
-                    ) : (
-                      <span className="text-xs text-slate-400">
-                        Revogado em {device.revokedAt ? <FormattedDate date={device.revokedAt} pattern="dd MMM yyyy, HH:mm" /> : "—"}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {devices.map((device) => (
+                  <tr key={device.id} className="transition hover:bg-surface-2">
+                    <Td>
+                      <div className="flex items-center gap-3">
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface-3 text-ink-2">
+                          <DeviceIcon platform={device.platform} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-ink">{device.name}</p>
+                          <p className="truncate text-xs text-ink-3">
+                            {[device.platform, device.browser].filter(Boolean).join(" · ") || "—"}
+                          </p>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td>
+                      <p className="text-ink">{device.user.name}</p>
+                      <p className="text-xs text-ink-3">{device.user.email}</p>
+                    </Td>
+                    <Td className="text-xs">
+                      {device.lastSeenAt ? (
+                        <>
+                          <p className="text-ink-2">
+                            <FormattedDate date={device.lastSeenAt} pattern="dd MMM yyyy, HH:mm" />
+                          </p>
+                          {device.lastIp && <p className="font-mono text-ink-3">{device.lastIp}</p>}
+                        </>
+                      ) : (
+                        <span className="text-ink-3">—</span>
+                      )}
+                    </Td>
+                    <Td>
+                      <StatusBadge status={device.status} />
+                    </Td>
+                    <Td align="right">
+                      {device.status === "ATIVO" ? (
+                        <RevokeDeviceButton deviceId={device.id} deviceName={device.name} />
+                      ) : (
+                        <span className="text-xs text-ink-3">
+                          {device.revokedAt ? (
+                            <>
+                              Revogado em <FormattedDate date={device.revokedAt} pattern="dd/MM/yyyy" />
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </span>
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </TableShell>
+          </Card>
+        </>
+      )}
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return status === "REVOGADO" ? (
+    <Badge tone="critical" icon={<ShieldX size={11} />}>
+      Revogado
+    </Badge>
+  ) : (
+    <Badge tone="good" icon={<ShieldCheck size={11} />}>
+      Ativo
+    </Badge>
   );
 }

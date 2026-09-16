@@ -2,7 +2,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ticket, Building2, KeyRound, AlertCircle, Loader2, ChevronDown, QrCode, ShieldCheck } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  BarChart3,
+  Building2,
+  ChevronDown,
+  KeyRound,
+  Loader2,
+  QrCode,
+  ShieldCheck,
+  Sparkles,
+  Timer,
+} from "lucide-react";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { cn } from "@/lib/ui";
 
 type Organization = {
   id: string;
@@ -11,6 +25,15 @@ type Organization = {
 };
 
 type ActivationStep = "code" | "qr";
+
+const INPUT =
+  "block w-full rounded-xl border border-line bg-surface py-3 pl-10 pr-3 text-base text-ink outline-none transition placeholder:text-ink-3 focus:border-brand focus:shadow-(--ring-brand) disabled:cursor-not-allowed disabled:bg-surface-2";
+
+const HIGHLIGHTS = [
+  { icon: Timer, title: "SLA em horas úteis", text: "Prazos de resposta, contorno e correção acompanhados em tempo real." },
+  { icon: BarChart3, title: "Consumo × teto", text: "Grade C1–C6 com alertas antes do estouro do contrato." },
+  { icon: ShieldCheck, title: "Acesso por dispositivo", text: "Sem senha: ativação por código ou QR, com revogação imediata." },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -139,213 +162,297 @@ export default function LoginPage() {
 
   if (isLoading && organizations.length === 0) {
     return (
-      <main className="min-h-[100dvh] bg-slate-50 flex items-center justify-center px-3 py-[max(1rem,env(safe-area-inset-top))] sm:p-6">
-        <div className="flex items-center gap-2 text-slate-400">
+      <main className="flex min-h-dvh items-center justify-center bg-canvas px-3 py-[max(1rem,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-2 text-ink-3">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span className="text-sm">Carregando...</span>
+          <span className="text-sm">Verificando sessão…</span>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-[100dvh] bg-slate-50 flex items-center justify-center px-3 py-[max(1rem,env(safe-area-inset-top))] sm:p-6">
-      <div className="max-w-md w-full">
-        {/* Logo/Header */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-blue-100 rounded-2xl">
-              <Ticket className="h-10 w-10 text-blue-600" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900">Chamaqui</h1>
-          <p className="text-slate-500 mt-2">Ative seu dispositivo para acessar o portal</p>
+    <main className="grid min-h-dvh bg-canvas lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+      {/* Painel de marca */}
+      <section className="relative hidden overflow-hidden bg-[#0a1020] p-10 text-white lg:flex lg:flex-col xl:p-14">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_20%_10%,rgba(57,135,229,0.35),transparent_70%),radial-gradient(50%_45%_at_90%_90%,rgba(144,133,233,0.22),transparent_70%)]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(rgba(255,255,255,0.9)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:44px_44px]"
+        />
+
+        <div className="relative flex items-center gap-2.5">
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#3987e5]">
+            <Sparkles size={18} strokeWidth={2.4} />
+          </span>
+          <span className="text-lg font-bold tracking-tight">Chamaqui</span>
         </div>
 
-        {/* Card */}
-        <div className="bg-white p-5 sm:p-8 rounded-2xl shadow-sm border border-slate-100">
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-3 text-sm">
-              <AlertCircle size={18} className="shrink-0" />
-              <p className="break-words">{error}</p>
-            </div>
-          )}
+        <div className="relative mt-auto max-w-lg space-y-8">
+          <div>
+            <h1 className="text-balance text-4xl font-bold leading-[1.1] tracking-tight xl:text-5xl">
+              Cada chamado, do registro à validação.
+            </h1>
+            <p className="mt-4 text-base leading-relaxed text-white/70">
+              Gestão de incidentes e solicitações com SLA contratual, consumo de teto e indicadores
+              para decidir rápido.
+            </p>
+          </div>
 
-          <form onSubmit={handleActivate} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Qual organização deseja acessar?
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Building2 className="h-5 w-5 text-slate-400" />
-                </div>
-                <select
-                  required
-                  value={organizationId}
-                  onChange={(e) => {
-                    setOrganizationId(e.target.value);
-                    setAccessCode("");
-                    setError("");
-                  }}
-                  className="block w-full appearance-none pl-10 pr-10 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-base text-slate-900 bg-white"
-                >
-                  <option value="" disabled>Selecione...</option>
-                  {organizations.map((org) => (
-                    <option key={org.id} value={org.id}>{org.name}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Alternância código / QR */}
-            <div>
-              <div className="flex items-center gap-1 mb-3 border border-slate-200 rounded-lg p-1">
-                <button
-                  type="button"
-                  onClick={() => { setStep("code"); setError(""); }}
-                  className={`flex flex-1 min-h-11 items-center justify-center gap-2 rounded-md text-sm font-medium transition ${step === "code" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
-                >
-                  <KeyRound size={16} /> Código curto
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setStep("qr"); setError(""); }}
-                  className={`flex flex-1 min-h-11 items-center justify-center gap-2 rounded-md text-sm font-medium transition ${step === "qr" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}
-                >
-                  <QrCode size={16} /> QR Code
-                </button>
-              </div>
-
-              {step === "code" ? (
+          <ul className="space-y-4">
+            {HIGHLIGHTS.map((item) => (
+              <li key={item.title} className="flex gap-3.5">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 ring-1 ring-white/15">
+                  <item.icon size={18} />
+                </span>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Digite seu código de ativação
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <KeyRound className="h-5 w-5 text-slate-400" />
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      value={accessCode}
-                      onChange={(e) => {
-                        setAccessCode(e.target.value.toUpperCase());
-                        setError("");
-                      }}
-                      disabled={!organizationId}
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="characters"
-                      spellCheck={false}
-                      maxLength={9}
-                      placeholder={organizationId ? "XXXX-XXXX" : "Selecione a organização primeiro"}
-                      className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-base tracking-[0.2em] text-slate-900 disabled:bg-slate-100 disabled:cursor-not-allowed"
-                    />
-                  </div>
+                  <p className="text-sm font-semibold">{item.title}</p>
+                  <p className="text-sm text-white/60">{item.text}</p>
                 </div>
-              ) : (
-                <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center">
-                  <QrCode className="mx-auto h-8 w-8 text-slate-400 mb-2" />
-                  <p className="text-sm text-slate-600 mb-1">
-                    Escaneie o QR Code fornecido pelo administrador
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    Aponte a câmera do celular para o QR exibido pelo responsável. O restante acontece automaticamente.
-                  </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="relative mt-12 text-xs text-white/40">
+          © {new Date().getFullYear()} Plataforma Chamaqui
+        </p>
+      </section>
+
+      {/* Autenticação */}
+      <section className="flex flex-col px-4 py-[max(1.25rem,env(safe-area-inset-top))] sm:px-8">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-2 lg:invisible">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-on-brand">
+              <Sparkles size={16} strokeWidth={2.4} />
+            </span>
+            <span className="font-bold tracking-tight text-ink">Chamaqui</span>
+          </span>
+          <ThemeToggle />
+        </div>
+
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-8">
+          <div className="animate-fade-up">
+            <h2 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Acessar o portal</h2>
+            <p className="mt-1.5 text-sm text-ink-2">
+              Ative este dispositivo com o código fornecido pela sua organização.
+            </p>
+
+            <div className="mt-7 space-y-5">
+              {error && (
+                <div role="alert" className="flex items-center gap-3 rounded-xl bg-critical-soft p-3.5 text-sm text-critical-ink">
+                  <AlertCircle size={18} className="shrink-0" />
+                  <p>{error}</p>
                 </div>
               )}
-            </div>
 
-            {step === "code" && (
-              <button
-                type="submit"
-                disabled={isLoading || !organizationId || !accessCode}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  "Ativar Dispositivo"
-                )}
-              </button>
-            )}
-          </form>
-
-          {/* Bootstrap: responsável pela organização */}
-          <div className="mt-6 pt-6 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => { setShowBootstrap(!showBootstrap); setBootstrapError(""); setBootstrapCode(""); }}
-              className="w-full flex items-center justify-center gap-2 min-h-11 text-sm font-medium text-slate-600 hover:text-blue-600 transition"
-            >
-              <ShieldCheck size={16} />
-              {showBootstrap ? "Fechar" : "Sou responsável pela organização — gerar código de acesso"}
-            </button>
-
-            {showBootstrap && (
-              <form onSubmit={handleBootstrap} className="mt-4 space-y-4">
-                <p className="text-sm text-slate-500">
-                  Use a chave de acesso da sua organização para gerar um código de ativação (função
-                  {bootstrapRole ? ` ${bootstrapRole} ` : " de administrador "}deste dispositivo).
-                </p>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <KeyRound className="h-5 w-5 text-slate-400" />
+              <form onSubmit={handleActivate} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label htmlFor="organization" className="text-sm font-medium text-ink">
+                    Organização
+                  </label>
+                  <div className="relative">
+                    <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-ink-3" />
+                    <select
+                      id="organization"
+                      required
+                      value={organizationId}
+                      onChange={(e) => {
+                        setOrganizationId(e.target.value);
+                        setAccessCode("");
+                        setError("");
+                      }}
+                      className={cn(INPUT, "appearance-none pr-10")}
+                    >
+                      <option value="" disabled>
+                        Selecione…
+                      </option>
+                      {organizations.map((org) => (
+                        <option key={org.id} value={org.id}>
+                          {org.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-ink-3" />
                   </div>
-                  <input
-                    type="password"
-                    required
-                    value={bootstrapKey}
-                    onChange={(e) => { setBootstrapKey(e.target.value); setBootstrapError(""); setBootstrapCode(""); }}
-                    disabled={!organizationId || bootstrapLoading}
-                    autoComplete="off"
-                    placeholder={organizationId ? "Chave de acesso da organização" : "Selecione a organização primeiro"}
-                    className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-base text-slate-900 disabled:bg-slate-100 disabled:cursor-not-allowed"
-                  />
                 </div>
 
-                {bootstrapError && (
-                  <div className="p-3 bg-red-50 text-red-600 rounded-lg flex items-center gap-2 text-sm">
-                    <AlertCircle size={16} className="shrink-0" />
-                    <p className="break-words">{bootstrapError}</p>
+                <div className="space-y-3">
+                  <div role="tablist" aria-label="Forma de ativação" className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface-2 p-1">
+                    {(
+                      [
+                        { key: "code", label: "Código curto", Icon: KeyRound },
+                        { key: "qr", label: "QR Code", Icon: QrCode },
+                      ] as const
+                    ).map(({ key, label, Icon }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        aria-selected={step === key}
+                        onClick={() => {
+                          setStep(key);
+                          setError("");
+                        }}
+                        className={cn(
+                          "flex min-h-10 items-center justify-center gap-2 rounded-lg text-sm font-medium transition",
+                          step === key ? "bg-surface text-ink shadow-card" : "text-ink-3 hover:text-ink-2"
+                        )}
+                      >
+                        <Icon size={15} />
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                )}
 
-                {bootstrapCode && (
-                  <div className="rounded-lg bg-slate-50 p-4">
-                    <p className="text-xs text-slate-500 mb-1">
-                      Código gerado (use uma única vez, expira em 24h):
-                    </p>
-                    <code className="block text-center text-2xl font-mono font-bold tracking-[0.2em] text-slate-900">
-                      {bootstrapCode}
-                    </code>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={bootstrapLoading || !organizationId || !bootstrapKey}
-                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-slate-900 hover:bg-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {bootstrapLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                  {step === "code" ? (
+                    <div className="space-y-1.5">
+                      <label htmlFor="accessCode" className="text-sm font-medium text-ink">
+                        Código de ativação
+                      </label>
+                      <div className="relative">
+                        <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-ink-3" />
+                        <input
+                          id="accessCode"
+                          type="text"
+                          required
+                          value={accessCode}
+                          onChange={(e) => {
+                            setAccessCode(e.target.value.toUpperCase());
+                            setError("");
+                          }}
+                          disabled={!organizationId}
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="characters"
+                          spellCheck={false}
+                          maxLength={9}
+                          placeholder={organizationId ? "XXXX-XXXX" : "Selecione a organização primeiro"}
+                          className={cn(INPUT, "font-mono tracking-[0.2em] placeholder:font-sans placeholder:tracking-normal")}
+                        />
+                      </div>
+                    </div>
                   ) : (
-                    "Gerar código de acesso"
+                    <div className="rounded-xl border border-dashed border-line-strong bg-surface-2 p-5 text-center">
+                      <QrCode className="mx-auto mb-2 h-8 w-8 text-ink-3" />
+                      <p className="text-sm font-medium text-ink">Escaneie o QR Code do administrador</p>
+                      <p className="mt-1 text-xs text-ink-3">
+                        Aponte a câmera do celular para o QR exibido pelo responsável. O restante
+                        acontece automaticamente.
+                      </p>
+                    </div>
                   )}
-                </button>
+                </div>
+
+                {step === "code" && (
+                  <button
+                    type="submit"
+                    disabled={isLoading || !organizationId || !accessCode}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-on-brand shadow-card transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        Ativar dispositivo
+                        <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
+                )}
               </form>
-            )}
+
+              {/* Bootstrap: responsável pela organização */}
+              <div className="rounded-2xl border border-line bg-surface">
+                <button
+                  type="button"
+                  aria-expanded={showBootstrap}
+                  onClick={() => {
+                    setShowBootstrap(!showBootstrap);
+                    setBootstrapError("");
+                    setBootstrapCode("");
+                  }}
+                  className="flex min-h-12 w-full items-center gap-2.5 px-4 text-left text-sm font-medium text-ink-2 transition hover:text-ink"
+                >
+                  <ShieldCheck size={16} className="shrink-0 text-ink-3" />
+                  <span className="flex-1">Sou responsável pela organização</span>
+                  <ChevronDown size={16} className={cn("shrink-0 text-ink-3 transition", showBootstrap && "rotate-180")} />
+                </button>
+
+                {showBootstrap && (
+                  <form onSubmit={handleBootstrap} className="animate-fade space-y-3 border-t border-line p-4">
+                    <p className="text-xs leading-relaxed text-ink-3">
+                      Use a chave de acesso da organização para gerar um código de ativação
+                      {bootstrapRole ? ` (${bootstrapRole.toLowerCase()})` : " de administrador"} para
+                      este dispositivo.
+                    </p>
+                    <div className="relative">
+                      <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-ink-3" />
+                      <input
+                        type="password"
+                        required
+                        aria-label="Chave de acesso da organização"
+                        value={bootstrapKey}
+                        onChange={(e) => {
+                          setBootstrapKey(e.target.value);
+                          setBootstrapError("");
+                          setBootstrapCode("");
+                        }}
+                        disabled={!organizationId || bootstrapLoading}
+                        autoComplete="off"
+                        placeholder={organizationId ? "Chave de acesso da organização" : "Selecione a organização primeiro"}
+                        className={INPUT}
+                      />
+                    </div>
+
+                    {bootstrapError && (
+                      <div role="alert" className="flex items-center gap-2 rounded-xl bg-critical-soft p-3 text-sm text-critical-ink">
+                        <AlertCircle size={16} className="shrink-0" />
+                        <p>{bootstrapError}</p>
+                      </div>
+                    )}
+
+                    {bootstrapCode && (
+                      <div className="animate-fade-up rounded-xl bg-surface-2 p-4 text-center">
+                        <p className="text-xs text-ink-3">Código gerado · uso único, expira em 24h</p>
+                        <code className="mt-1 block font-mono text-2xl font-bold tracking-[0.2em] text-ink">
+                          {bootstrapCode}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAccessCode(bootstrapCode);
+                            setStep("code");
+                            setShowBootstrap(false);
+                          }}
+                          className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-brand-ink transition hover:bg-brand-soft"
+                        >
+                          Usar este código <ArrowRight size={13} />
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={bootstrapLoading || !organizationId || !bootstrapKey}
+                      className="flex min-h-11 w-full items-center justify-center rounded-xl bg-ink px-4 text-sm font-medium text-surface transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {bootstrapLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Gerar código de acesso"}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+
+            <p className="mt-6 text-center text-sm text-ink-3">
+              Não possui um código? Fale com o responsável pela sua organização.
+            </p>
           </div>
         </div>
-
-        {/* Footer info */}
-        <p className="text-center text-sm text-slate-500 mt-6 sm:mt-8 px-2">
-          Não possui um código de ativação? Contate o responsável pela sua organização.
-        </p>
-      </div>
+      </section>
     </main>
   );
 }
