@@ -9,46 +9,6 @@ Portal de chamados de TI com autenticação por dispositivo (código curto / QR 
 - **JWT (jose)** para access/device tokens, **AES-256-GCM** para refresh tokens em repouso
 - Sem next-auth — autenticação própria por ativação de dispositivo
 
-## Getting Started
-
-Configure o ambiente:
-
-```bash
-cp .env.example .env
-npm install
-npm run dev
-```
-
-Abra [http://localhost:3000](http://localhost:3000).
-
-## Variáveis de ambiente
-
-Variáveis de servidor (não prefixar com `NEXT_PUBLIC_`):
-
-```dotenv
-DATABASE_URL="postgres://..."
-DIRECT_URL="postgres://..."
-
-# Autenticação por dispositivo
-AUTH_TOKEN_SECRET="use-a-unique-random-secret"     # ≥16 chars; assina access e device tokens
-TOKEN_ENCRYPTION_KEY="hex:<64 hex chars>"           # 32 bytes; encripta refresh tokens em repouso
-AUTH_FINGERPRINT_SECRET="use-another-random-secret" # ≥16 chars; HMAC do fingerprint do dispositivo
-
-# Legados (mantidos por compatibilidade)
-NEXTAUTH_SECRET="use-an-independent-secret"
-AUTH_RATE_LIMIT_SECRET="use-a-third-random-secret"
-INSTITUTO_ENERGISA_ACCESS_KEY="use-a-unique-random-key"
-HDL_ACCESS_KEY="use-a-different-unique-random-key"
-
-# Chaves de acesso das organizações (bootstrap)
-# Convenção: ORG_ACCESS_KEY_<SLUG> (traços viram underscore, tudo maiúsculo)
-ORG_ACCESS_KEY_HDL="use-a-unique-random-key"
-ORG_ACCESS_KEY_INSTITUTO_ENERGISA="use-a-different-unique-random-key"
-
-NEXT_PUBLIC_SUPABASE_URL="https://xxx.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
-```
-
 ## Fluxo de autenticação
 
 1. Na tela `/login` o usuário informa o código curto (`XXXX-XXXX`, uso único, expira em 30 dias) ou escaneia o QR Code. **A organização é identificada pelo código**: a lista de clientes nunca é exibida nem exposta por API.
@@ -103,6 +63,16 @@ começa no registro no sistema, não na mensagem avulsa.
 execução até o cliente escolher entre excedente e fila do mês seguinte; 2 P1
 simultâneos alertam o gestor; o 3º P1 na mesma semana zera os tetos de C2/C3/C4
 do mês. Contestação de categoria expira sozinha em 5 dias úteis.
+
+**Triagem.** `EM_TRIAGEM` é uma etapa automatizada e única. Ao entrar nela o
+sistema publica sozinho, no histórico do chamado, a comunicação de análise
+assinada pela HDL Soluções, com o protocolo e o nível de priorização do chamado
+— o suporte não digita nada. Ao sair, a etapa é dada por concluída e o chamado
+nunca mais volta para ela: a regra se apoia nos marcos `triageEnteredAt` e
+`triageCompletedAt`, é validada em
+[`triage-service.ts`](src/server/services/triage-service.ts) e aplicada no
+servidor, com a interface apenas refletindo o mesmo bloqueio. A atuação manual
+do suporte começa em `EM_ATENDIMENTO`.
 
 **Relatório mensal** em `/reports/consumption`: consumo × teto por categoria, SLA
 cumprido por severidade (com e sem a janela de loja descontada), improcedentes,

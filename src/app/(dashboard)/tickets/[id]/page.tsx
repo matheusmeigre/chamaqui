@@ -384,7 +384,13 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
           <SlaPanel assessment={sla} />
 
-          {isAdmin && <TechStatusForm ticketId={ticket.id} currentStatus={ticket.status} />}
+          {isAdmin && (
+            <TechStatusForm
+              ticketId={ticket.id}
+              currentStatus={ticket.status}
+              triageCompleted={ticket.triageCompletedAt !== null}
+            />
+          )}
 
           {isAdmin && (
             <GridActions

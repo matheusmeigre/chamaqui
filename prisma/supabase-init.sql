@@ -202,6 +202,8 @@ CREATE TABLE IF NOT EXISTS "Ticket" (
     "units" INTEGER NOT NULL DEFAULT 1,
     "estimatedHours" DOUBLE PRECISION,
     "actualHours" DOUBLE PRECISION,
+    "triageEnteredAt" TIMESTAMP(3),
+    "triageCompletedAt" TIMESTAMP(3),
     "outcome" "TicketOutcome",
     "consumesQuota" BOOLEAN NOT NULL DEFAULT true,
     "competency" TEXT,
