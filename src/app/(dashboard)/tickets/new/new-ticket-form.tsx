@@ -6,6 +6,7 @@ import type { TicketCategoryCode } from "@prisma/client";
 import { ClassificationFields } from "@/components/grid/ClassificationFields";
 import { FIELD_CLASS } from "@/components/ui";
 import { cn } from "@/lib/ui";
+import { DescriptionField } from "./description-field";
 import { SubmitButton } from "./submit-button";
 
 const TITLE_MAX = 120;
@@ -41,10 +42,13 @@ export function NewTicketForm({
   action,
   categories,
   canClassify,
+  assistantEnabled,
 }: {
   action: (formData: FormData) => Promise<void>;
   categories: Array<{ id: string; name: string; description: string | null }>;
   canClassify: boolean;
+  /** Auxílio de escrita com IA — opcional, e ausente se não houver provedor. */
+  assistantEnabled: boolean;
 }) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<TicketCategoryCode | "">("");
@@ -124,21 +128,7 @@ export function NewTicketForm({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="description" className="text-sm font-medium text-ink">
-              Descrição detalhada <span className="text-critical">*</span>
-            </label>
-            <textarea
-              name="description"
-              id="description"
-              required
-              rows={6}
-              placeholder={
-                "O que você fez, o que esperava e o que aconteceu.\n\nEx.:\n1. Abri o app no atrativo X\n2. Toquei em Capturar\n3. Apareceu “fora do raio” mesmo estando no local"
-              }
-              className={cn(FIELD_CLASS, "resize-y leading-relaxed")}
-            />
-          </div>
+          <DescriptionField assistantEnabled={assistantEnabled} />
         </div>
       </Step>
 

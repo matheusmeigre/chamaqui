@@ -4,6 +4,7 @@ import { CheckCircle2, ChevronRight, ClipboardList, Lightbulb, MessagesSquare, S
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createTicket } from "@/app/actions/tickets";
+import { isWritingAssistantEnabled } from "@/server/services/writing-assistant";
 import { Card, CardBody, CardHeader } from "@/components/ui";
 import { NewTicketForm } from "./new-ticket-form";
 
@@ -52,6 +53,7 @@ export default async function NewTicketPage() {
         <NewTicketForm
           categories={categories}
           canClassify={session.role === "ADMINISTRADOR"}
+          assistantEnabled={isWritingAssistantEnabled()}
           action={async (formData) => {
             "use server";
             await createTicket(formData);

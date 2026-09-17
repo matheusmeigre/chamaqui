@@ -74,6 +74,24 @@ reincidências, taxa de P1 contra a reserva da faixa e ranking de causa raiz.
 > primeira apuração real — sem eles o relógio de SLA conta como útil um dia que
 > não é.
 
+## Auxílio de escrita com IA
+
+Na abertura do chamado, o campo **Descrição detalhada** tem uma ação opcional
+**✨ Melhorar com IA**: o solicitante relata o problema do jeito que sabe e
+recebe uma versão revisada — ortografia, clareza e organização —, que só entra
+no campo se ele aceitar. Recusar, falhar ou demorar não altera o que ele
+escreveu, e depois de aplicada a sugestão o texto original continua a um clique.
+
+A instrução enviada ao modelo é explícita em **melhorar o texto existente**: não
+inventar fatos, causas ou informações técnicas, não remover informação
+relevante e não mexer em classificações ou conclusões do relato — ver
+[`writing-assistant.ts`](src/server/services/writing-assistant.ts).
+
+O provedor é a Groq, pela API compatível com o formato OpenAI, configurada em
+`GROQ_API_KEY` (e, opcionalmente, `GROQ_MODEL`). **Sem a chave o recurso
+simplesmente não é oferecido** e a abertura de chamado segue idêntica: o auxílio
+nunca é caminho obrigatório.
+
 ## Database setup
 
 Para um banco novo/limpo, aplique o schema e os dados iniciais:
