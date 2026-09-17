@@ -102,6 +102,11 @@ O provedor é a Groq, pela API compatível com o formato OpenAI, configurada em
 simplesmente não é oferecido** e a abertura de chamado segue idêntica: o auxílio
 nunca é caminho obrigatório.
 
+O modelo padrão é `openai/gpt-oss-120b`. A oferta gratuita da Groq muda com o
+tempo e **varia por conta**: se o botão passar a acusar modelo indisponível,
+liste o que a chave alcança com `GET https://api.groq.com/openai/v1/models` e
+aponte `GROQ_MODEL` para um deles — nenhuma alteração de código é necessária.
+
 ## Database setup
 
 Para um banco novo/limpo, aplique o schema e os dados iniciais:
