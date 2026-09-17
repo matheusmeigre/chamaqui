@@ -64,6 +64,16 @@ execução até o cliente escolher entre excedente e fila do mês seguinte; 2 P1
 simultâneos alertam o gestor; o 3º P1 na mesma semana zera os tetos de C2/C3/C4
 do mês. Contestação de categoria expira sozinha em 5 dias úteis.
 
+**Triagem.** `EM_TRIAGEM` é uma etapa automatizada e única. Ao entrar nela o
+sistema publica sozinho, no histórico do chamado, a comunicação de análise
+assinada pela HDL Soluções, com o protocolo e o nível de priorização do chamado
+— o suporte não digita nada. Ao sair, a etapa é dada por concluída e o chamado
+nunca mais volta para ela: a regra se apoia nos marcos `triageEnteredAt` e
+`triageCompletedAt`, é validada em
+[`triage-service.ts`](src/server/services/triage-service.ts) e aplicada no
+servidor, com a interface apenas refletindo o mesmo bloqueio. A atuação manual
+do suporte começa em `EM_ATENDIMENTO`.
+
 **Relatório mensal** em `/reports/consumption`: consumo × teto por categoria, SLA
 cumprido por severidade (com e sem a janela de loja descontada), improcedentes,
 reincidências, taxa de P1 contra a reserva da faixa e ranking de causa raiz.
@@ -73,6 +83,24 @@ reincidências, taxa de P1 contra a reserva da faixa e ranking de causa raiz.
 > Leopoldina/Piacatuba precisam ser cadastrados na tabela `Holiday` antes da
 > primeira apuração real — sem eles o relógio de SLA conta como útil um dia que
 > não é.
+
+## Auxílio de escrita com IA
+
+Na abertura do chamado, o campo **Descrição detalhada** tem uma ação opcional
+**✨ Melhorar com IA**: o solicitante relata o problema do jeito que sabe e
+recebe uma versão revisada — ortografia, clareza e organização —, que só entra
+no campo se ele aceitar. Recusar, falhar ou demorar não altera o que ele
+escreveu, e depois de aplicada a sugestão o texto original continua a um clique.
+
+A instrução enviada ao modelo é explícita em **melhorar o texto existente**: não
+inventar fatos, causas ou informações técnicas, não remover informação
+relevante e não mexer em classificações ou conclusões do relato — ver
+[`writing-assistant.ts`](src/server/services/writing-assistant.ts).
+
+O provedor é a Groq, pela API compatível com o formato OpenAI, configurada em
+`GROQ_API_KEY` (e, opcionalmente, `GROQ_MODEL`). **Sem a chave o recurso
+simplesmente não é oferecido** e a abertura de chamado segue idêntica: o auxílio
+nunca é caminho obrigatório.
 
 ## Database setup
 

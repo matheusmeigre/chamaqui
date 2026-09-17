@@ -17,12 +17,16 @@ const STATUS_HINT: Partial<Record<TicketStatus, string>> = {
   CANCELADO: "Descarta o chamado",
 };
 
+const TRIAGE_DONE_HINT = "Triagem já concluída";
+
 interface Props {
   ticketId: string;
   currentStatus: TicketStatus;
+  /** Triagem é etapa única: concluída, deixa de ser um destino possível. */
+  triageCompleted: boolean;
 }
 
-export function TechStatusForm({ ticketId, currentStatus }: Props) {
+export function TechStatusForm({ ticketId, currentStatus, triageCompleted }: Props) {
   const [isPending, startTransition] = useTransition();
   const [selectedStatus, setSelectedStatus] = useState<TicketStatus>(currentStatus);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
@@ -65,16 +69,21 @@ export function TechStatusForm({ ticketId, currentStatus }: Props) {
             {STATUS_ORDER.map((status) => {
               const active = selectedStatus === status;
               const current = currentStatus === status;
+              // A mesma regra que o servidor aplica: sem oferecer uma transição
+              // que já se sabe recusada.
+              const blocked = status === "EM_TRIAGEM" && triageCompleted;
               return (
                 <button
                   key={status}
                   type="button"
                   role="radio"
                   aria-checked={active}
-                  disabled={isPending}
+                  disabled={isPending || blocked}
                   onClick={() => setSelectedStatus(status)}
+                  title={blocked ? TRIAGE_DONE_HINT : undefined}
                   className={cn(
                     "flex items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition disabled:opacity-60",
+                    blocked && "cursor-not-allowed",
                     active
                       ? "border-brand bg-brand-soft"
                       : "border-line bg-surface hover:border-line-strong hover:bg-surface-2"
@@ -89,8 +98,10 @@ export function TechStatusForm({ ticketId, currentStatus }: Props) {
                     <span className={cn("block text-sm", active ? "font-semibold text-ink" : "text-ink-2")}>
                       {STATUS_LABEL[status]}
                     </span>
-                    {STATUS_HINT[status] && (
-                      <span className="block truncate text-[11px] text-ink-3">{STATUS_HINT[status]}</span>
+                    {(blocked || STATUS_HINT[status]) && (
+                      <span className="block truncate text-[11px] text-ink-3">
+                        {blocked ? TRIAGE_DONE_HINT : STATUS_HINT[status]}
+                      </span>
                     )}
                   </span>
                   {current && (
