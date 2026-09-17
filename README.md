@@ -64,6 +64,16 @@ execução até o cliente escolher entre excedente e fila do mês seguinte; 2 P1
 simultâneos alertam o gestor; o 3º P1 na mesma semana zera os tetos de C2/C3/C4
 do mês. Contestação de categoria expira sozinha em 5 dias úteis.
 
+**Triagem.** `EM_TRIAGEM` é uma etapa automatizada e única. Ao entrar nela o
+sistema publica sozinho, no histórico do chamado, a comunicação de análise
+assinada pela HDL Soluções, com o protocolo e o nível de priorização do chamado
+— o suporte não digita nada. Ao sair, a etapa é dada por concluída e o chamado
+nunca mais volta para ela: a regra se apoia nos marcos `triageEnteredAt` e
+`triageCompletedAt`, é validada em
+[`triage-service.ts`](src/server/services/triage-service.ts) e aplicada no
+servidor, com a interface apenas refletindo o mesmo bloqueio. A atuação manual
+do suporte começa em `EM_ATENDIMENTO`.
+
 **Relatório mensal** em `/reports/consumption`: consumo × teto por categoria, SLA
 cumprido por severidade (com e sem a janela de loja descontada), improcedentes,
 reincidências, taxa de P1 contra a reserva da faixa e ranking de causa raiz.

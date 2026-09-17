@@ -9,7 +9,7 @@
 // O teto se aplica somente ao eixo de natureza. Severidade nunca tem teto.
 // ----------------------------------------------------------------------------
 
-import type { ContractTier, QuotaUnit, Severity, TicketCategoryCode } from "@prisma/client";
+import type { ContractTier, Priority, QuotaUnit, Severity, TicketCategoryCode } from "@prisma/client";
 
 /** Uma jornada útil: 9h às 18h = 9 horas de relógio de SLA. */
 export const BUSINESS_HOURS_PER_DAY = 9;
@@ -195,6 +195,17 @@ export const SEVERITY_TO_PRIORITY = {
   P3: "MEDIA",
   P4: "BAIXA",
 } as const;
+
+/**
+ * O caminho inverso, para comunicar em P1..P4 um chamado que não é C1 e por
+ * isso não tem severidade. Não classifica nada: só traduz a escala.
+ */
+export const PRIORITY_TO_SEVERITY = {
+  CRITICA: "P1",
+  ALTA: "P2",
+  MEDIA: "P3",
+  BAIXA: "P4",
+} as const satisfies Record<Priority, Severity>;
 
 // ----------------------------------------------------------------------------
 // Eixo 3 — Faixas de contratação e tetos

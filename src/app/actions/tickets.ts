@@ -17,6 +17,11 @@ import {
   validateSeverity,
 } from "@/server/services/ticket-classification";
 import { evaluateP1Burst, evaluateQuotaAlerts } from "@/server/services/quota-alerts";
+import {
+  TRIAGE_BLOCKED_MESSAGE,
+  buildTriageMessage,
+  canEnterTriage,
+} from "@/server/services/triage-service";
 import { checkExecutionGate } from "@/server/services/quota-service";
 
 export async function createTicket(formData: FormData) {
@@ -118,14 +123,29 @@ export async function updateTicketStatus(ticketId: string, status: TicketStatus)
   const current = await prisma.ticket.findUnique({
     where: { id: ticketId },
     select: {
+      status: true,
       categoryCode: true,
       competency: true,
       firstResponseAt: true,
       overrunDecision: true,
+      triageEnteredAt: true,
+      triageCompletedAt: true,
       requester: { select: { organizationId: true } },
     },
   });
   if (!current) throw new Error("Chamado não encontrado");
+
+  // Triagem é etapa única: análise, categorização e dimensionamento acontecem
+  // uma vez só. Concluída a etapa, o chamado não volta para ela — e a regra
+  // olha os marcos da passagem pela triagem, não o status atual. A validação
+  // vive aqui, no servidor: a interface apenas reflete a mesma regra.
+  if (status === "EM_TRIAGEM" && !canEnterTriage(current)) {
+    throw new Error(TRIAGE_BLOCKED_MESSAGE);
+  }
+
+  const enteringTriage = status === "EM_TRIAGEM" && current.status !== "EM_TRIAGEM";
+  const leavingTriage = status !== "EM_TRIAGEM" && current.status === "EM_TRIAGEM";
+  const now = new Date();
 
   // Bloqueio de execução no estouro do teto: só vale para o início do
   // atendimento. Triagem, resposta e encerramento seguem livres, porque o
@@ -147,7 +167,9 @@ export async function updateTicketStatus(ticketId: string, status: TicketStatus)
       status,
       assigneeId: session.role === "ADMINISTRADOR" ? session.id : undefined,
       // A primeira manifestação técnica registra o marco de 1ª resposta do SLA.
-      ...(current.firstResponseAt ? {} : { firstResponseAt: new Date() }),
+      ...(current.firstResponseAt ? {} : { firstResponseAt: now }),
+      ...(enteringTriage ? { triageEnteredAt: now } : {}),
+      ...(leavingTriage ? { triageCompletedAt: now } : {}),
     }
   });
 
@@ -159,6 +181,20 @@ export async function updateTicketStatus(ticketId: string, status: TicketStatus)
       isSystem: true
     }
   });
+
+  // A comunicação de entrada em triagem é responsabilidade do sistema: não
+  // depende do campo de resposta nem do botão Enviar. Vai como mensagem do
+  // suporte — é uma comunicação ao solicitante, não um log de evento.
+  if (enteringTriage) {
+    await prisma.comment.create({
+      data: {
+        content: buildTriageMessage(ticket),
+        ticketId: ticket.id,
+        authorId: session.id,
+        isSystem: false
+      }
+    });
+  }
 
   // Notificar o solicitante
   if (ticket.requesterId !== session.id) {

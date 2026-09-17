@@ -246,6 +246,11 @@ model Ticket {
   estimatedHours Float?
   actualHours    Float?
 
+  /// Marcos da triagem. A etapa acontece uma única vez por chamado: depois de
+  /// concluída, o chamado não pode voltar para EM_TRIAGEM.
+  triageEnteredAt   DateTime?
+  triageCompletedAt DateTime?
+
   outcome       TicketOutcome?
   /// Derivado: false para todo desfecho improcedente, duplicado ou reabertura.
   consumesQuota Boolean        @default(true)
