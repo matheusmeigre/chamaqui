@@ -13,7 +13,10 @@
 // ----------------------------------------------------------------------------
 
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+// Modelo disponível na camada gratuita da Groq. A oferta muda com o tempo e
+// varia por conta: GET /openai/v1/models lista o que a chave alcança, e
+// GROQ_MODEL troca este padrão sem mexer no código.
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
 const REQUEST_TIMEOUT_MS = 25_000;
 
 export const DESCRIPTION_MIN_LENGTH = 10;
@@ -46,7 +49,7 @@ export function isWritingAssistantEnabled(): boolean {
 }
 
 type GroqResponse = {
-  choices?: Array<{ message?: { content?: string } }>;
+  choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
   error?: { message?: string };
 };
 
@@ -81,6 +84,8 @@ export async function improveDescription(original: string): Promise<ImprovedDesc
     };
   }
 
+  const model = process.env.GROQ_MODEL || DEFAULT_MODEL;
+
   try {
     const response = await fetch(GROQ_ENDPOINT, {
       method: "POST",
@@ -89,10 +94,15 @@ export async function improveDescription(original: string): Promise<ImprovedDesc
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.GROQ_MODEL || DEFAULT_MODEL,
+        model,
         // Temperatura baixa: a tarefa é reescrever com fidelidade, não criar.
         temperature: 0.2,
-        max_completion_tokens: 1200,
+        // Reescrever não pede deliberação: o esforço mínimo corta a latência
+        // sem prejudicar o resultado.
+        reasoning_effort: "low",
+        // O orçamento acompanha o tamanho do relato. Um teto fixo ou sufoca o
+        // texto longo ou estoura o limite por minuto da camada gratuita.
+        max_completion_tokens: Math.min(2000, 500 + Math.ceil(text.length / 2)),
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: text },
@@ -103,8 +113,12 @@ export async function improveDescription(original: string): Promise<ImprovedDesc
     });
 
     if (!response.ok) {
+      // A mensagem do provedor é a única pista de causa quando algo muda do
+      // lado dele: vai inteira para o log, sempre.
       const detail = await response.text();
-      console.error("Auxílio com IA falhou:", response.status, detail);
+      console.error(
+        `Auxílio com IA falhou: HTTP ${response.status} · modelo "${model}" · ${detail}`
+      );
       if (response.status === 429) {
         return {
           ok: false,
@@ -114,14 +128,33 @@ export async function improveDescription(original: string): Promise<ImprovedDesc
       if (response.status === 401 || response.status === 403) {
         return { ok: false, error: "O auxílio com IA não está autorizado neste ambiente." };
       }
+      // Modelo removido da oferta, renomeado ou fora do alcance da chave — o
+      // caso mais provável de quebra silenciosa, e que só se resolve mexendo na
+      // configuração. Dizer "tente novamente" aqui seria mentira.
+      if (response.status === 404) {
+        return {
+          ok: false,
+          error: `O modelo de IA configurado ("${model}") não está disponível. Ajuste GROQ_MODEL no ambiente.`,
+        };
+      }
       return { ok: false, error: "Não foi possível revisar o texto agora. Tente novamente." };
     }
 
     const payload = (await response.json()) as GroqResponse;
-    const suggestion = unwrap(payload.choices?.[0]?.message?.content ?? "");
+    const choice = payload.choices?.[0];
+    const suggestion = unwrap(choice?.message?.content ?? "");
 
     if (!suggestion) {
       return { ok: false, error: "A IA não devolveu uma sugestão. Tente novamente." };
+    }
+
+    // Resposta cortada no meio: melhor recusar do que oferecer ao usuário uma
+    // descrição pela metade para substituir a dele.
+    if (choice?.finish_reason === "length") {
+      return {
+        ok: false,
+        error: "A revisão ficou incompleta porque o relato é muito longo. Divida-o ou revise manualmente.",
+      };
     }
 
     return { ok: true, text: suggestion };
